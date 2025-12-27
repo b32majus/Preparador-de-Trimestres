@@ -58,9 +58,7 @@ const trimestreId = Astro.url.searchParams.get('id');
 
 <div id="trimestre-config" data-base-url={baseUrl} data-trimestre-id={trimestreId}></div>
 
-<script>
-  import '../scripts/trimestre.js';
-</script>
+<script type="module" src="../scripts/trimestre.js"></script>
 
 <style>
   /* Mismo CSS que el archivo original */
