@@ -49,12 +49,16 @@ const baseUrl = import.meta.env.BASE_URL;
           <slot />
         </div>
       </div>
+      <div id="app-config" data-base-url={baseUrl}></div>
     </body>
   </html>
 </AuthGuard>
 
-<script define:vars={{ baseUrl }}>
+<script>
   import { supabase } from '../lib/supabase.js';
+
+  const configElement = document.getElementById('app-config');
+  const baseUrl = configElement?.dataset.baseUrl || '/';
 
   // Obtener y mostrar email del usuario
   async function loadUserEmail() {
