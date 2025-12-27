@@ -115,6 +115,36 @@
   --z-dropdown: 1000;
   --z-modal: 1050;
   --z-tooltip: 1100;
+
+  /* Variables adicionales Sophilux */
+  --oro-rosa: #B8897D;
+  --oro-rosa-light: #D4B5A8;
+  --oro-rosa-ultra-light: #F5E6D3;
+
+  /* Fondos adicionales */
+  --bg-card: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-hover: #FAF8F5;
+
+  /* Texto adicional */
+  --text-muted: #9B958F;
+
+  /* Estados para checklist */
+  --state-pending: #9B958F;
+  --state-pending-bg: #F5F3F0;
+  --state-done: #4A7C59;
+  --state-done-bg: #E8F0E8;
+  --state-doubtful: #D4A84B;
+  --state-doubtful-bg: #FFF8E1;
+
+  /* Sombras adicionales */
+  --shadow-soft: 0 2px 8px rgba(45, 41, 38, 0.06);
+  --shadow-card: 0 2px 8px rgba(45, 41, 38, 0.06);
+  --shadow-hover: 0 4px 12px rgba(45, 41, 38, 0.1);
+
+  /* Bordes adicionales */
+  --border-light: #E8E4E0;
+  --border-medium: #D4D0CC;
 }
 
 /* ============================================
