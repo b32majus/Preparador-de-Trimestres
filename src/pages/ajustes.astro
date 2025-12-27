@@ -1,0 +1,14 @@
+---
+import App from '../layouts/App.astro';
+import AuthGuard from '../components/AuthGuard.astro';
+
+const baseUrl = import.meta.env.BASE_URL;
+---
+
+<App title="Ajustes - Preparador de Trimestres">
+  <AuthGuard redirectTo={`${baseUrl}login`}>
+    <main>
+      {/* Ajustes page content */}
+    </main>
+  </AuthGuard>
+</App>

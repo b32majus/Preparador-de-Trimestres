@@ -1,0 +1,315 @@
+---
+interface Props {
+  expectedDocs: Array<{
+    id: string;
+    status: 'pending' | 'fulfilled' | 'dismissed';
+    recurring_expenses: {
+      concept_label: string;
+      section: string;
+    };
+  }>;
+  trimestreId: string;
+}
+
+const { expectedDocs, trimestreId } = Astro.props;
+
+const pendingCount = expectedDocs.filter(d => d.status === 'pending').length;
+const fulfilledCount = expectedDocs.filter(d => d.status === 'fulfilled').length;
+---
+
+<section class="expected-expenses-section">
+  <div class="section-header">
+    <div class="header-left">
+      <span class="icon material-symbols-outlined">assignment_turned_in</span>
+      <div class="header-text">
+        <h2 class="section-title">Gastos esperados (del Q anterior)</h2>
+        <p class="section-subtitle">En el trimestre anterior subiste estos gastos recurrentes. ¿Los tienes para este trimestre?</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="expected-list">
+    {expectedDocs.map(doc => (
+      <div class={`expected-item status-${doc.status}`}>
+        {doc.status === 'pending' && (
+          <label class="checkbox-item">
+            <input
+              type="checkbox"
+              class="expected-checkbox"
+              data-expected-id={doc.id}
+              data-trimestre-id={trimestreId}
+            />
+            <span class="item-label">{doc.recurring_expenses.concept_label}</span>
+          </label>
+        )}
+
+        {doc.status === 'fulfilled' && (
+          <div class="fulfilled-item">
+            <span class="icon material-symbols-outlined">check_circle</span>
+            <span class="item-label strikethrough">{doc.recurring_expenses.concept_label}</span>
+            <span class="fulfilled-badge">Ya subido</span>
+          </div>
+        )}
+
+        {doc.status === 'dismissed' && (
+          <div class="dismissed-item">
+            <span class="icon material-symbols-outlined">cancel</span>
+            <span class="item-label strikethrough">{doc.recurring_expenses.concept_label}</span>
+            <span class="dismissed-badge">Descartado</span>
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+
+  <button class="add-recurring-btn">
+    <span class="icon material-symbols-outlined">add_circle</span>
+    <span>Añadir otro gasto recurrente</span>
+  </button>
+</section>
+
+<script>
+  import { updateExpectedDocument } from '../../lib/supabase.js';
+
+  // Handle checkbox changes for expected expenses
+  document.querySelectorAll('.expected-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', async (e) => {
+      const expectedId = checkbox.dataset.expectedId;
+      const trimestreId = checkbox.dataset.trimestreId;
+      const isChecked = checkbox.checked;
+
+      if (isChecked) {
+        // Mark as fulfilled
+        const { error } = await updateExpectedDocument(expectedId, 'fulfilled');
+
+        if (error) {
+          console.error('Error marking as fulfilled:', error);
+          checkbox.checked = false;
+          alert('Error al marcar gasto como cumplido');
+        } else {
+          // Update UI
+          const item = checkbox.closest('.expected-item');
+          item.className = 'expected-item status-fulfilled';
+          item.innerHTML = `
+            <div class="fulfilled-item">
+              <span class="icon material-symbols-outlined">check_circle</span>
+              <span class="item-label strikethrough">${checkbox.parentElement.querySelector('.item-label').textContent}</span>
+              <span class="fulfilled-badge">Ya subido</span>
+            </div>
+          `;
+
+          // Trigger progress recalculation
+          window.dispatchEvent(new CustomEvent('expectedDocumentUpdated', {
+            detail: { expectedId, status: 'fulfilled' }
+          }));
+        }
+      } else {
+        // Mark as dismissed
+        const { error } = await updateExpectedDocument(expectedId, 'dismissed');
+
+        if (error) {
+          console.error('Error marking as dismissed:', error);
+          checkbox.checked = true;
+          alert('Error al descartar gasto');
+        } else {
+          // Update UI
+          const item = checkbox.closest('.expected-item');
+          item.className = 'expected-item status-dismissed';
+          item.innerHTML = `
+            <div class="dismissed-item">
+              <span class="icon material-symbols-outlined">cancel</span>
+              <span class="item-label strikethrough">${checkbox.parentElement.querySelector('.item-label').textContent}</span>
+              <span class="dismissed-badge">Descartado</span>
+            </div>
+          `;
+
+          // Trigger progress recalculation
+          window.dispatchEvent(new CustomEvent('expectedDocumentUpdated', {
+            detail: { expectedId, status: 'dismissed' }
+          }));
+        }
+      }
+    });
+  });
+
+  // Add recurring expense button
+  document.querySelector('.add-recurring-btn')?.addEventListener('click', () => {
+    alert('Funcionalidad de añadir gastos recurrentes próximamente');
+  });
+</script>
+
+<style>
+  .expected-expenses-section {
+    background: #F5E6D3;
+    border: 1px solid #EAD8C5;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 2rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1;
+  }
+
+  .section-header .icon {
+    color: rgba(140, 107, 93, 0.6);
+    background: rgba(255, 255, 255, 0.4);
+    padding: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .header-text {
+    flex: 1;
+  }
+
+  .section-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.25rem 0;
+  }
+
+  .section-subtitle {
+    color: rgba(140, 107, 93, 1);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    margin: 0;
+  }
+
+  .expected-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-left: 0;
+  }
+
+  .expected-item {
+    padding: 0.75rem;
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid transparent;
+    transition: all var(--transition-base);
+  }
+
+  .expected-item:hover {
+    background: rgba(255, 255, 255, 0.6);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  .checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+  }
+
+  .expected-checkbox {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid #C4B4A6;
+    border-radius: 0.375rem;
+    background: #FDFBF9;
+    cursor: pointer;
+    accent-color: var(--color-primary);
+  }
+
+  .expected-checkbox:checked {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+
+  .item-label {
+    font-weight: 500;
+    color: var(--text-main);
+    user-select: none;
+  }
+
+  .item-label.strikethrough {
+    opacity: 0.6;
+    text-decoration: line-through;
+  }
+
+  .fulfilled-item,
+  .dismissed-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .fulfilled-item .icon {
+    color: var(--color-success);
+    flex-shrink: 0;
+  }
+
+  .dismissed-item .icon {
+    color: #999;
+    flex-shrink: 0;
+  }
+
+  .fulfilled-badge,
+  .dismissed-badge {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.6);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .fulfilled-badge {
+    color: var(--color-success);
+  }
+
+  .dismissed-badge {
+    color: #999;
+  }
+
+  .add-recurring-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    padding: 0.5rem 0;
+    margin-top: 0.5rem;
+    transition: all var(--transition-base);
+  }
+
+  .add-recurring-btn:hover {
+    color: var(--color-primary-hover);
+    gap: 0.75rem;
+  }
+
+  .add-recurring-btn .icon {
+    font-size: var(--font-size-xl);
+  }
+
+  @media (max-width: 640px) {
+    .expected-expenses-section {
+      padding: 1.5rem;
+    }
+
+    .section-title {
+      font-size: var(--font-size-xl);
+    }
+  }
+</style>

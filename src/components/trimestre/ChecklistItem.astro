@@ -1,0 +1,458 @@
+---
+interface Props {
+  item: {
+    id: string;
+    label: string;
+    help_text?: string;
+    status: 'pending' | 'done' | 'doubtful';
+  };
+  section: string;
+}
+
+const { item, section } = Astro.props;
+
+const statusConfig = {
+  pending: {
+    icon: 'radio_button_unchecked',
+    label: 'Esperando documento',
+    borderColor: '#9B958F',
+    bgColor: '#FFFFFF',
+    iconBgColor: '#F2EFEA'
+  },
+  done: {
+    icon: 'check',
+    label: 'Documento validado',
+    borderColor: '#4A7C59',
+    bgColor: '#F0F7F2',
+    iconBgColor: 'white'
+  },
+  doubtful: {
+    icon: 'priority_high',
+    label: 'Marcado como dudoso',
+    borderColor: '#D4A84B',
+    bgColor: '#FEF9EB',
+    iconBgColor: 'white'
+  }
+};
+
+const config = statusConfig[item.status];
+---
+
+<div
+  class={`checklist-item status-${item.status}`}
+  data-item-id={item.id}
+  data-status={item.status}
+  data-section={section}
+  role="button"
+  tabindex="0"
+>
+  <!-- Left: Icon + Info -->
+  <div class="item-info">
+    <div class={`status-icon icon-${item.status}`}>
+      <span class="material-symbols-outlined">{config.icon}</span>
+    </div>
+
+    <div class="item-text">
+      <p class="item-label">{item.label}</p>
+      <p class="item-status-text">{config.label}</p>
+      {item.help_text && <p class="item-help">{item.help_text}</p>}
+    </div>
+  </div>
+
+  <!-- Right: Action Button -->
+  <div class="item-actions">
+    {item.status === 'done' && (
+      <button class="btn-action btn-link" data-action="view">
+        Ver archivo
+      </button>
+    )}
+    {item.status === 'doubtful' && (
+      <button class="btn-action btn-secondary" data-action="edit">
+        Editar
+      </button>
+    )}
+    {item.status === 'pending' && (
+      <button class="btn-action btn-primary" data-action="upload">
+        <span class="material-symbols-outlined">upload</span>
+        <span>Subir documento</span>
+      </button>
+    )}
+  </div>
+</div>
+
+<script>
+  import { updateChecklistItem } from '../../lib/supabase.js';
+  import { getDoubtfulItemMessage } from '../../lib/microcopy.js';
+
+  const stateFlow = {
+    'pending': 'done',
+    'done': 'doubtful',
+    'doubtful': 'pending'
+  };
+
+  // State cycling on item click
+  document.querySelectorAll('.checklist-item').forEach(item => {
+    item.addEventListener('click', async (e) => {
+      // Don't cycle if clicking on action button
+      if (e.target.closest('[data-action]')) {
+        return;
+      }
+
+      const itemId = item.dataset.itemId;
+      const currentStatus = item.dataset.status;
+      const nextStatus = stateFlow[currentStatus];
+      const section = item.dataset.section;
+
+      // Optimistic UI update
+      const previousHtml = item.innerHTML;
+      item.dataset.status = nextStatus;
+      item.className = `checklist-item status-${nextStatus}`;
+
+      // Animate transition
+      item.style.opacity = '0.6';
+
+      // API call
+      const { error } = await updateChecklistItem(itemId, nextStatus);
+
+      item.style.opacity = '1';
+
+      if (error) {
+        // Revert on error
+        item.dataset.status = currentStatus;
+        item.className = `checklist-item status-${currentStatus}`;
+        alert('Error al actualizar estado. Intenta de nuevo.');
+      } else {
+        // Show notification if marked as doubtful
+        if (nextStatus === 'doubtful') {
+          showTemporaryMessage(getDoubtfulItemMessage());
+        }
+
+        // Re-attach event listeners after DOM update
+        attachActionListeners(item);
+
+        // Trigger progress recalculation
+        window.dispatchEvent(new CustomEvent('checklistUpdated', {
+          detail: { itemId, newStatus: nextStatus, section }
+        }));
+      }
+    });
+
+    // Keyboard support (Enter to cycle)
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        item.click();
+      }
+    });
+
+    // Attach action button listeners
+    attachActionListeners(item);
+  });
+
+  function showTemporaryMessage(text) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = 'doubtful-notification';
+    notification.textContent = text;
+    notification.setAttribute('role', 'status');
+    notification.setAttribute('aria-live', 'polite');
+
+    // Append to body
+    document.body.appendChild(notification);
+
+    // Trigger animation
+    setTimeout(() => {
+      notification.classList.add('show');
+    }, 10);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+      notification.classList.remove('show');
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 300);
+    }, 3000);
+  }
+
+  function attachActionListeners(item) {
+    const actionButtons = item.querySelectorAll('[data-action]');
+
+    actionButtons.forEach(btn => {
+      // Remove existing listeners by cloning
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+
+      newBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+
+        const action = newBtn.dataset.action;
+        const itemId = item.dataset.itemId;
+        const itemLabel = item.querySelector('.item-label').textContent;
+
+        if (action === 'view') {
+          window.dispatchEvent(new CustomEvent('viewDocument', {
+            detail: { itemId, itemLabel }
+          }));
+        } else if (action === 'edit') {
+          window.dispatchEvent(new CustomEvent('editChecklistItem', {
+            detail: { itemId, itemLabel }
+          }));
+        } else if (action === 'upload') {
+          window.dispatchEvent(new CustomEvent('uploadDocument', {
+            detail: { itemId, itemLabel, section: item.dataset.section }
+          }));
+        }
+      });
+    });
+  }
+</script>
+
+<style>
+  .checklist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem;
+    border-left: 6px solid;
+    border-bottom: 1px solid white;
+    gap: 1rem;
+    transition: all var(--transition-base);
+    cursor: pointer;
+  }
+
+  .checklist-item:last-child {
+    border-bottom: none;
+  }
+
+  .checklist-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  /* Status: Pending (gray) */
+  .status-pending {
+    border-left-color: #9B958F;
+    background: white;
+  }
+
+  .status-pending:hover {
+    background: #F9F8F7;
+  }
+
+  .status-pending .status-icon {
+    background: #F2EFEA;
+    color: #9B958F;
+  }
+
+  /* Status: Done (green) */
+  .status-done {
+    border-left-color: #4A7C59;
+    background: #F0F7F2;
+  }
+
+  .status-done:hover {
+    background: #E8F2EB;
+  }
+
+  .status-done .status-icon {
+    background: white;
+    color: #4A7C59;
+    ring: 1px solid rgba(74, 124, 89, 0.1);
+    box-shadow: 0 1px 2px rgba(74, 124, 89, 0.1);
+  }
+
+  /* Status: Doubtful (amber) */
+  .status-doubtful {
+    border-left-color: #D4A84B;
+    background: #FEF9EB;
+  }
+
+  .status-doubtful:hover {
+    background: #FDF6E0;
+  }
+
+  .status-doubtful .status-icon {
+    background: white;
+    color: #D4A84B;
+    ring: 1px solid rgba(212, 168, 75, 0.1);
+    box-shadow: 0 1px 2px rgba(212, 168, 75, 0.1);
+  }
+
+  .item-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .status-icon {
+    padding: 0.375rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .status-icon span {
+    font-size: 1.125rem;
+  }
+
+  .item-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .item-label {
+    font-weight: 600;
+    color: var(--text-main);
+    font-size: var(--font-size-sm);
+    margin: 0 0 0.25rem 0;
+  }
+
+  .item-status-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .status-pending .item-status-text {
+    color: var(--text-secondary);
+  }
+
+  .status-done .item-status-text {
+    color: #4A7C59;
+  }
+
+  .status-doubtful .item-status-text {
+    color: #D4A84B;
+  }
+
+  .item-help {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 0.25rem 0 0 0;
+    font-style: italic;
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .btn-action {
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+  }
+
+  .btn-link {
+    background: none;
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-decoration-color: rgba(184, 137, 125, 0.3);
+    text-underline-offset: 4px;
+  }
+
+  .btn-link:hover {
+    color: var(--color-primary);
+    text-decoration-color: var(--color-primary);
+  }
+
+  .btn-secondary {
+    background: white;
+    color: var(--text-main);
+    border: 1px solid #EAD8C5;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-secondary:hover {
+    background: #FAF8F5;
+  }
+
+  .btn-primary {
+    background: var(--color-primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(184, 137, 125, 0.2);
+  }
+
+  .btn-primary:hover {
+    background: var(--color-primary-hover);
+    box-shadow: 0 6px 16px rgba(184, 137, 125, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.95);
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .checklist-item {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 0.75rem;
+      gap: 0.75rem;
+    }
+
+    .item-actions {
+      align-self: flex-start;
+      margin-left: 2rem;
+    }
+
+    .btn-action {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    .btn-primary {
+      width: 100%;
+    }
+  }
+</style>
+
+<style is:global>
+  .doubtful-notification {
+    position: fixed;
+    bottom: var(--spacing-xl);
+    right: var(--spacing-xl);
+    background: rgba(212, 168, 75, 0.05);
+    color: var(--text-main);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    border-left: 3px solid var(--color-warning);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(var(--spacing-md));
+    transition: all var(--transition-slow, 300ms) var(--transition-timing);
+    z-index: var(--z-dropdown, 1000);
+    max-width: 320px;
+  }
+
+  .doubtful-notification.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 640px) {
+    .doubtful-notification {
+      bottom: var(--spacing-md);
+      right: var(--spacing-md);
+      left: var(--spacing-md);
+      max-width: none;
+    }
+  }
+</style>

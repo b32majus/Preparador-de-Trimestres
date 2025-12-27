@@ -1,0 +1,1139 @@
+---
+import App from '../layouts/App.astro';
+
+const baseUrl = import.meta.env.BASE_URL;
+const trimestreId = Astro.url.searchParams.get('id');
+---
+
+<App title="Resumen de Trimestre">
+  <div id="loading-resumen" class="loading-container">
+    <div class="spinner"></div>
+    <p>Cargando resumen...</p>
+  </div>
+
+  <div id="resumen-content" style="display: none;">
+    <div class="resumen-page">
+      <div class="container">
+        <!-- Header Section -->
+        <section class="header-section" id="header-section"></section>
+
+        <!-- Progress Section -->
+        <section class="progress-section card" id="progress-section"></section>
+
+        <!-- Stats Grid -->
+        <section class="stats-grid" id="stats-grid"></section>
+
+        <!-- Two Column Layout -->
+        <div class="two-column-layout">
+          <div class="left-column">
+            <!-- Recurring expenses -->
+            <section class="card" id="recurring-expenses-section"></section>
+
+            <!-- Advisor notes -->
+            <section class="card" id="advisor-notes-section"></section>
+          </div>
+
+          <div class="right-column">
+            <!-- Doubtful items -->
+            <section class="warning-card" id="doubtful-items-section"></section>
+          </div>
+        </div>
+
+        <!-- Export Section -->
+        <section class="export-section card" id="export-section">
+          <div class="export-decoration"></div>
+
+          <div class="export-content">
+            <div class="export-header">
+              <h2>¡Todo listo para exportar!</h2>
+              <p>Descarga la documentación y envíasela a tu gestor. Has ahorrado aprox. 2 horas de gestión este trimestre.</p>
+            </div>
+
+            <div class="export-buttons">
+              <button class="btn-primary" data-action="download-executive">
+                <span class="material-symbols-outlined">download</span>
+                <span>Descargar Resumen Ejecutivo</span>
+              </button>
+
+              <div class="secondary-buttons">
+                <button class="btn-secondary" data-action="download-complete">
+                  <span class="material-symbols-outlined">picture_as_pdf</span>
+                  <span>PDF Completo</span>
+                </button>
+                <button class="btn-secondary" data-action="download-zip">
+                  <span class="material-symbols-outlined">folder_zip</span>
+                  <span>Descargar ZIP</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="copy-buttons">
+              <button class="btn-copy" data-copy="email">
+                <span class="material-symbols-outlined">content_copy</span>
+                Copiar texto para email
+              </button>
+              <button class="btn-copy" data-copy="whatsapp">
+                <span class="material-symbols-outlined">chat</span>
+                Copiar para WhatsApp
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Certificate Link -->
+        <div class="certificate-link" id="certificate-link"></div>
+      </div>
+    </div>
+
+    <div class="loading-overlay" style="display: none;">
+      <div class="spinner"></div>
+      <p>Generando documentos...</p>
+    </div>
+  </div>
+</App>
+
+<script define:vars={{ baseUrl, trimestreId }}>
+  import { supabase } from '../lib/supabase.js';
+  import { getDocuments, getChecklistItems, getNotes } from '../lib/supabase.js';
+  import { generateResumenEjecutivo } from '../lib/generators/resumenEjecutivo.js';
+  import { generateResumenCompleto } from '../lib/generators/resumenCompleto.js';
+  import { generateAndDownloadZip } from '../lib/generators/zipPackage.js';
+  import { generateEmailText, generateWhatsAppText } from '../lib/generators/textTemplates.js';
+  import { saveAs } from 'file-saver';
+
+  async function loadResumen() {
+    // 1. Validate trimestreId
+    if (!trimestreId) {
+      window.location.href = `${baseUrl}dashboard`;
+      return;
+    }
+
+    // 2. Get user and validate trimestre
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data: trimestre, error: trimestreError } = await supabase
+      .from('trimestres')
+      .select('*')
+      .eq('id', trimestreId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (trimestreError || !trimestre) {
+      window.location.href = `${baseUrl}dashboard`;
+      return;
+    }
+
+    // 3. Check status
+    if (trimestre.status !== 'ready' && trimestre.status !== 'sent') {
+      window.location.href = `${baseUrl}trimestre?id=${trimestreId}`;
+      return;
+    }
+
+    // 4. Load data in parallel
+    const [
+      { data: documents },
+      { data: checklistItems },
+      { data: notes }
+    ] = await Promise.all([
+      getDocuments(trimestreId),
+      getChecklistItems(trimestreId),
+      getNotes(trimestreId)
+    ]);
+
+    // 5. Process data
+    const recurringExpenses = documents.filter(d => d.is_recurring && d.concept_label);
+    const uniqueRecurring = [...new Set(recurringExpenses.map(d => d.concept_label))];
+
+    const docCounts = {
+      ingresos: documents.filter(d => d.section === 'ingresos').length,
+      gastos: documents.filter(d => d.section === 'gastos').length,
+      banco: documents.filter(d => d.section === 'banco').length,
+      otros: documents.filter(d => d.section === 'otros').length
+    };
+
+    const doubtfulItems = checklistItems.filter(i => i.status === 'doubtful');
+    const advisorNotes = notes.filter(n => n.for_advisor);
+
+    const nextQuarter = trimestre.quarter === 4 ? 1 : trimestre.quarter + 1;
+    const nextYear = trimestre.quarter === 4 ? trimestre.year + 1 : trimestre.year;
+
+    const closedDate = new Date(trimestre.closed_at).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    // 6. Expose trimestre data globally
+    window.__TRIMESTRE_DATA__ = {
+      id: trimestre.id,
+      year: trimestre.year,
+      quarter: trimestre.quarter,
+      status: trimestre.status,
+      closed_at: trimestre.closed_at,
+      checklist_progress: trimestre.checklist_progress
+    };
+
+    // 7. Render sections
+    renderHeaderSection(trimestre, closedDate);
+    renderProgressSection(trimestre);
+    renderStatsGrid(docCounts);
+    renderRecurringExpenses(uniqueRecurring, nextQuarter, nextYear);
+    renderAdvisorNotes(advisorNotes);
+    renderDoubtfulItems(doubtfulItems);
+    renderCertificateLink(trimestreId);
+
+    // 8. Attach event listeners
+    attachExportListeners(documents);
+
+    // 9. Show content
+    document.getElementById('loading-resumen').style.display = 'none';
+    document.getElementById('resumen-content').style.display = 'block';
+  }
+
+  function renderHeaderSection(trimestre, closedDate) {
+    document.getElementById('header-section').innerHTML = `
+      <div class="title-badge-wrapper">
+        <div class="title-group">
+          <h1 class="page-title">Resumen Q${trimestre.quarter} / ${trimestre.year}</h1>
+          <span class="badge badge-success">Listo para enviar</span>
+        </div>
+        <p class="subtitle">
+          <span class="material-symbols-outlined celebration-icon">celebration</span>
+          ¡Buen trabajo! Aquí tienes todo lo que has preparado.
+        </p>
+      </div>
+
+      <div class="closed-date-card">
+        <span class="label">Fecha de cierre</span>
+        <div class="date-display">
+          <span class="material-symbols-outlined">event</span>
+          <span>${closedDate}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProgressSection(trimestre) {
+    document.getElementById('progress-section').innerHTML = `
+      <div class="progress-header">
+        <div>
+          <h3>Checklist trimestral completado</h3>
+          <p class="muted">Todo revisado y validado</p>
+        </div>
+        <span class="percentage">${trimestre.checklist_progress}%</span>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill progress-bar-lg" style="width: ${trimestre.checklist_progress}%"></div>
+      </div>
+    `;
+  }
+
+  function renderStatsGrid(docCounts) {
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card">
+        <div class="icon-wrapper bg-success">
+          <span class="material-symbols-outlined">payments</span>
+        </div>
+        <div>
+          <p class="stat-number">${docCounts.ingresos}</p>
+          <p class="stat-label">Ingresos</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="icon-wrapper bg-primary">
+          <span class="material-symbols-outlined">receipt_long</span>
+        </div>
+        <div>
+          <p class="stat-number">${docCounts.gastos}</p>
+          <p class="stat-label">Gastos</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="icon-wrapper bg-info">
+          <span class="material-symbols-outlined">account_balance</span>
+        </div>
+        <div>
+          <p class="stat-number">${docCounts.banco}</p>
+          <p class="stat-label">Extracto</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="icon-wrapper bg-neutral">
+          <span class="material-symbols-outlined">folder_open</span>
+        </div>
+        <div>
+          <p class="stat-number">${docCounts.otros}</p>
+          <p class="stat-label">Otros docs</p>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRecurringExpenses(uniqueRecurring, nextQuarter, nextYear) {
+    document.getElementById('recurring-expenses-section').innerHTML = `
+      <div class="section-header">
+        <span class="material-symbols-outlined text-primary">autorenew</span>
+        <h3>Gastos Recurrentes Guardados</h3>
+      </div>
+
+      ${uniqueRecurring.length > 0 ? `
+        <div class="pill-container">
+          ${uniqueRecurring.map(label => `<span class="pill">${label}</span>`).join('')}
+        </div>
+        <p class="info-text">
+          <span class="material-symbols-outlined">info</span>
+          Te los recordaremos automáticamente en Q${nextQuarter} ${nextYear}
+        </p>
+      ` : `
+        <p class="muted">No hay gastos recurrentes guardados</p>
+      `}
+    `;
+  }
+
+  function renderAdvisorNotes(advisorNotes) {
+    document.getElementById('advisor-notes-section').innerHTML = `
+      <h3>Notas para tu gestor</h3>
+
+      ${advisorNotes.length > 0 ? `
+        <div class="quote-box">
+          ${advisorNotes.map(note => `<p class="quote-text">"${note.content}"</p>`).join('')}
+        </div>
+      ` : `
+        <p class="muted">Sin notas para el asesor</p>
+      `}
+    `;
+  }
+
+  function renderDoubtfulItems(doubtfulItems) {
+    document.getElementById('doubtful-items-section').innerHTML = `
+      <div class="warning-header">
+        <span class="material-symbols-outlined">warning</span>
+        <h3>A revisar</h3>
+      </div>
+
+      ${doubtfulItems.length > 0 ? `
+        <ul class="doubtful-list">
+          ${doubtfulItems.map(item => `
+            <li class="doubtful-item">
+              <span class="material-symbols-outlined">help</span>
+              <div>
+                <span class="item-label">${item.label}</span>
+                <span class="item-meta">Marcado como dudoso</span>
+              </div>
+            </li>
+          `).join('')}
+        </ul>
+      ` : `
+        <p class="muted">No hay elementos marcados como dudosos</p>
+      `}
+    `;
+  }
+
+  function renderCertificateLink(trimestreId) {
+    document.getElementById('certificate-link').innerHTML = `
+      <a href="${baseUrl}certificado?id=${trimestreId}" class="link-primary">
+        <span class="material-symbols-outlined">verified</span>
+        Ver mi Certificado de Cierre
+      </a>
+    `;
+  }
+
+  function attachExportListeners(documents) {
+    const loading = document.querySelector('.loading-overlay');
+
+    function showLoading() {
+      loading.style.display = 'flex';
+    }
+
+    function hideLoading() {
+      loading.style.display = 'none';
+    }
+
+    // Download Executive Summary
+    document.querySelector('[data-action="download-executive"]')?.addEventListener('click', async () => {
+      showLoading();
+      try {
+        const [{ data: documents }, { data: checklistItems }, { data: notes }] = await Promise.all([
+          getDocuments(trimestreId),
+          getChecklistItems(trimestreId),
+          getNotes(trimestreId)
+        ]);
+
+        const trimestre = window.__TRIMESTRE_DATA__;
+        const blob = await generateResumenEjecutivo(trimestre, documents, checklistItems, notes);
+        saveAs(blob, `Q${trimestre.quarter}_${trimestre.year}_Resumen_Ejecutivo.pdf`);
+      } catch (error) {
+        console.error('Error generating executive summary:', error);
+        alert('Error al generar el resumen. Intenta de nuevo.');
+      } finally {
+        hideLoading();
+      }
+    });
+
+    // Download Complete Summary
+    document.querySelector('[data-action="download-complete"]')?.addEventListener('click', async () => {
+      showLoading();
+      try {
+        const [{ data: documents }, { data: checklistItems }, { data: notes }] = await Promise.all([
+          getDocuments(trimestreId),
+          getChecklistItems(trimestreId),
+          getNotes(trimestreId)
+        ]);
+
+        const trimestre = window.__TRIMESTRE_DATA__;
+        const blob = await generateResumenCompleto(trimestre, documents, checklistItems, notes);
+        saveAs(blob, `Q${trimestre.quarter}_${trimestre.year}_Resumen_Completo.pdf`);
+      } catch (error) {
+        console.error('Error generating complete summary:', error);
+        alert('Error al generar el resumen completo. Intenta de nuevo.');
+      } finally {
+        hideLoading();
+      }
+    });
+
+    // Download ZIP
+    document.querySelector('[data-action="download-zip"]')?.addEventListener('click', async () => {
+      showLoading();
+      try {
+        const [{ data: documents }, { data: checklistItems }, { data: notes }] = await Promise.all([
+          getDocuments(trimestreId),
+          getChecklistItems(trimestreId),
+          getNotes(trimestreId)
+        ]);
+
+        const trimestre = window.__TRIMESTRE_DATA__;
+        await generateAndDownloadZip(trimestre, documents, checklistItems, notes);
+      } catch (error) {
+        console.error('Error generating ZIP:', error);
+        alert('Error al generar el paquete. Intenta de nuevo.');
+      } finally {
+        hideLoading();
+      }
+    });
+
+    // Copy email text
+    document.querySelector('[data-copy="email"]')?.addEventListener('click', async (event) => {
+      try {
+        const { data: documents } = await getDocuments(trimestreId);
+        const trimestre = window.__TRIMESTRE_DATA__;
+        const text = generateEmailText(trimestre, documents.length);
+
+        await navigator.clipboard.writeText(text);
+
+        // Visual feedback
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined">check</span> Copiado';
+        btn.style.color = 'var(--color-success)';
+
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.style.color = '';
+        }, 2000);
+      } catch (error) {
+        console.error('Error copying email text:', error);
+        alert('Error al copiar el texto.');
+      }
+    });
+
+    // Copy WhatsApp text
+    document.querySelector('[data-copy="whatsapp"]')?.addEventListener('click', async (event) => {
+      try {
+        const { data: documents } = await getDocuments(trimestreId);
+        const trimestre = window.__TRIMESTRE_DATA__;
+        const text = generateWhatsAppText(trimestre, documents.length);
+
+        await navigator.clipboard.writeText(text);
+
+        // Visual feedback
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined">check</span> Copiado';
+        btn.style.color = 'var(--color-success)';
+
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.style.color = '';
+        }, 2000);
+      } catch (error) {
+        console.error('Error copying WhatsApp text:', error);
+        alert('Error al copiar el texto.');
+      }
+    });
+  }
+
+  loadResumen();
+</script>
+
+<style>
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    gap: 1rem;
+  }
+
+  .loading-container .spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid var(--border-soft);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  .loading-container p {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .resumen-page {
+    width: 100%;
+    background: var(--bg-page);
+    min-height: 100vh;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* Header Section */
+  .header-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .title-badge-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .page-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-4xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.875rem;
+    border-radius: 9999px;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+  }
+
+  .badge-success {
+    background: rgba(74, 124, 89, 0.1);
+    color: var(--color-success);
+    border: 1px solid rgba(74, 124, 89, 0.2);
+  }
+
+  .subtitle {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-style: italic;
+    font-weight: 300;
+    color: var(--text-secondary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .celebration-icon {
+    font-size: 1.5rem;
+    color: var(--color-success);
+    flex-shrink: 0;
+  }
+
+  .closed-date-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-xl);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-card);
+  }
+
+  .closed-date-card .label {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+  }
+
+  .date-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-main);
+  }
+
+  .date-display .material-symbols-outlined {
+    color: var(--color-primary);
+    font-size: var(--font-size-2xl);
+  }
+
+  /* Progress Section */
+  .progress-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .progress-header h3 {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .progress-header .muted {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: 0.25rem 0 0 0;
+  }
+
+  .percentage {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    color: var(--color-success);
+  }
+
+  .progress-bar-container {
+    width: 100%;
+    height: 0.875rem;
+    background: var(--bg-page);
+    border-radius: 9999px;
+    overflow: hidden;
+    border: 1px solid var(--border-soft);
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-success), #5ba367);
+    border-radius: 9999px;
+    transition: width 1s ease-out;
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .stats-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .header-section {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .closed-date-card {
+      width: auto;
+    }
+  }
+
+  .stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-card);
+    transition: all var(--transition-base);
+  }
+
+  .stat-card:hover {
+    box-shadow: var(--shadow-soft);
+    border-color: rgba(184, 137, 125, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+  }
+
+  .icon-wrapper.bg-success {
+    background: rgba(74, 124, 89, 0.1);
+    color: var(--color-success);
+  }
+
+  .icon-wrapper.bg-primary {
+    background: rgba(184, 137, 125, 0.1);
+    color: var(--color-primary);
+  }
+
+  .icon-wrapper.bg-info {
+    background: rgba(91, 143, 168, 0.1);
+    color: var(--color-info);
+  }
+
+  .icon-wrapper.bg-neutral {
+    background: rgba(155, 149, 143, 0.1);
+    color: var(--color-neutral-600);
+  }
+
+  .stat-number {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .stat-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* Two Column Layout */
+  .two-column-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    .two-column-layout {
+      grid-template-columns: 2fr 1fr;
+    }
+  }
+
+  .left-column, .right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Card */
+  .card {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-card);
+    padding: 1.5rem;
+    border: 1px solid var(--border-soft);
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-header h3 {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .text-primary {
+    color: var(--color-primary);
+  }
+
+  /* Pills */
+  .pill-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .pill {
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    background: var(--bg-page);
+    border: 1px solid var(--border-soft);
+    font-size: var(--font-size-sm);
+    color: var(--text-main);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .info-text {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--font-size-xs);
+    font-style: italic;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .info-text .material-symbols-outlined {
+    font-size: 1rem;
+  }
+
+  /* Quote Box */
+  .quote-box {
+    position: relative;
+    background: var(--bg-page);
+    border: 1px dashed rgba(184, 137, 125, 0.2);
+    border-radius: var(--radius-xl);
+    padding: 1.25rem;
+  }
+
+  .quote-text {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-style: italic;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* Warning Card */
+  .warning-card {
+    background: rgba(212, 168, 75, 0.05);
+    border: 1px solid rgba(212, 168, 75, 0.2);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    height: fit-content;
+  }
+
+  .warning-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-warning);
+    margin-bottom: 1.25rem;
+  }
+
+  .warning-header h3 {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: #8a6a2e;
+    margin: 0;
+  }
+
+  .doubtful-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .doubtful-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    background: var(--bg-card);
+    border: 1px solid rgba(212, 168, 75, 0.1);
+    border-radius: var(--radius-xl);
+    padding: 1rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .doubtful-item .material-symbols-outlined {
+    color: var(--color-warning);
+    font-size: 1.25rem;
+    margin-top: 0.125rem;
+  }
+
+  .item-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  .item-meta {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-top: 0.125rem;
+  }
+
+  /* Export Section */
+  .export-section {
+    position: relative;
+    overflow: hidden;
+    padding: 2.5rem;
+    margin-top: 1rem;
+  }
+
+  .export-decoration {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 24rem;
+    height: 24rem;
+    background: rgba(184, 137, 125, 0.05);
+    border-radius: 50%;
+    margin-right: -6rem;
+    margin-top: -6rem;
+    pointer-events: none;
+    filter: blur(60px);
+  }
+
+  .export-content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .export-header {
+    text-align: center;
+    max-width: 32rem;
+  }
+
+  .export-header h2 {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.75rem 0;
+  }
+
+  .export-header p {
+    font-size: var(--font-size-base);
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .export-buttons {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 28rem;
+    gap: 1rem;
+  }
+
+  .btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-xl);
+    padding: 1rem 1.5rem;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    box-shadow: 0 10px 25px -5px rgba(184, 137, 125, 0.2);
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .btn-primary:hover {
+    background: var(--color-primary-hover);
+    transform: translateY(-2px);
+  }
+
+  .secondary-buttons {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .btn-secondary {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: var(--bg-page);
+    color: var(--text-main);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-xl);
+    padding: 0.75rem 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-card);
+    border-color: rgba(184, 137, 125, 0.3);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-secondary .material-symbols-outlined {
+    color: var(--text-secondary);
+    font-size: 1.25rem;
+  }
+
+  .divider {
+    width: 100%;
+    max-width: 21rem;
+    height: 1px;
+    background: var(--border-soft);
+  }
+
+  .copy-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .copy-buttons {
+      flex-direction: row;
+      gap: 2rem;
+    }
+  }
+
+  .btn-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .btn-copy:hover {
+    color: var(--color-primary);
+  }
+
+  .btn-copy:hover .material-symbols-outlined {
+    transform: scale(1.1);
+  }
+
+  .btn-copy .material-symbols-outlined {
+    font-size: 1.125rem;
+    transition: transform var(--transition-base);
+  }
+
+  /* Certificate Link */
+  .certificate-link {
+    display: flex;
+    justify-content: center;
+    padding-top: 1rem;
+  }
+
+  .link-primary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-primary);
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    transition: all var(--transition-base);
+  }
+
+  .link-primary:hover {
+    background: rgba(184, 137, 125, 0.05);
+  }
+
+  .link-primary .material-symbols-outlined {
+    transition: transform var(--transition-base);
+  }
+
+  .link-primary:hover .material-symbols-outlined {
+    transform: scale(1.1);
+  }
+
+  /* Loading Overlay */
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    z-index: 1000;
+  }
+
+  .spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid var(--border-soft);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-overlay p {
+    color: var(--text-main);
+    font-weight: 500;
+  }
+
+  .muted {
+    color: var(--text-secondary);
+  }
+</style>

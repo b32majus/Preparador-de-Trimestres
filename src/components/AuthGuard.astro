@@ -1,0 +1,69 @@
+---
+// AuthGuard.astro - Protección client-side
+interface Props {
+  redirectTo?: string;
+}
+
+const { redirectTo = `${import.meta.env.BASE_URL}login` } = Astro.props;
+---
+
+<div id="auth-guard">
+  <div class="loading-auth">
+    <span class="material-symbols-outlined spinning">progress_activity</span>
+    <p>Verificando sesión...</p>
+  </div>
+  <div id="auth-content" style="display: none;">
+    <slot />
+  </div>
+</div>
+
+<script define:vars={{ redirectTo }}>
+  import { supabase } from '../lib/supabase.js';
+
+  async function checkAuth() {
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    if (!session || error) {
+      // No autenticado, redirigir a login
+      const currentPath = window.location.pathname + window.location.search;
+      const loginUrl = redirectTo.includes('?')
+        ? `${redirectTo}&redirect=${encodeURIComponent(currentPath)}`
+        : `${redirectTo}?redirect=${encodeURIComponent(currentPath)}`;
+      window.location.href = loginUrl;
+      return;
+    }
+
+    // Autenticado, mostrar contenido
+    document.getElementById('auth-guard').querySelector('.loading-auth').style.display = 'none';
+    document.getElementById('auth-content').style.display = 'block';
+  }
+
+  checkAuth();
+</script>
+
+<style>
+  .loading-auth {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: var(--spacing-md);
+  }
+
+  .spinning {
+    animation: spin 1s linear infinite;
+    font-size: 3rem;
+    color: var(--color-primary);
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-auth p {
+    color: var(--text-secondary);
+    font-size: var(--font-size-base);
+  }
+</style>

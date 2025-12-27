@@ -1,0 +1,1378 @@
+---
+import Landing from '../layouts/Landing.astro';
+
+const title = "Preparador de Trimestres - Organiza tu documentación fiscal con calma | Sophilux";
+const description = "Olvídate del estrés de última hora. Organiza tus facturas, revisa tus gastos y envíalo todo en orden con una experiencia diseñada para tu tranquilidad.";
+const baseUrl = import.meta.env.BASE_URL;
+---
+
+<Landing title={title} description={description}>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <div class="navbar-brand">
+        <div class="logo-icon">
+          <span class="material-symbols-outlined">spa</span>
+        </div>
+        <h1 class="logo-text">Sophilux</h1>
+      </div>
+
+      <div class="navbar-menu">
+        <a href="#como-funciona" class="nav-link">Cómo funciona</a>
+        <a href="#precios" class="nav-link">Precios</a>
+        <a href={`${baseUrl}login`} class="nav-link">Iniciar sesión</a>
+        <a href={`${baseUrl}login`} class="btn-nav-cta">Empezar gratis</a>
+      </div>
+
+      <button class="menu-toggle" aria-label="Abrir menú">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero-section">
+    <div class="hero-container">
+      <div class="hero-grid">
+        <!-- Content -->
+        <div class="hero-content">
+          <div class="hero-badge">
+            <span class="material-symbols-outlined">self_improvement</span>
+            <span>Tu paz mental importa</span>
+          </div>
+
+          <h2 class="hero-title">
+            Prepara el trimestre antes de escribir a tu asesor
+          </h2>
+
+          <p class="hero-subtitle">
+            Olvídate del estrés de última hora. Organiza tus facturas, revisa tus gastos y envíalo todo en orden con una experiencia diseñada para tu tranquilidad.
+          </p>
+
+          <ul class="hero-features">
+            <li class="feature-item">
+              <span class="feature-icon">
+                <span class="material-symbols-outlined">check</span>
+              </span>
+              <span>Checklist guiada paso a paso</span>
+            </li>
+            <li class="feature-item">
+              <span class="feature-icon">
+                <span class="material-symbols-outlined">check</span>
+              </span>
+              <span>Documentos centralizados y seguros</span>
+            </li>
+            <li class="feature-item">
+              <span class="feature-icon">
+                <span class="material-symbols-outlined">check</span>
+              </span>
+              <span>El sistema recuerda tus gastos recurrentes</span>
+            </li>
+          </ul>
+
+          <div class="hero-cta">
+            <a href={`${baseUrl}login`} class="btn-primary-large">
+              <span>Empezar mi trimestre</span>
+              <span class="material-symbols-outlined">arrow_forward</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Illustration -->
+        <div class="hero-illustration">
+          <div class="illustration-bg"></div>
+          <div class="illustration-container">
+            <div class="floating-card floating-card-1">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">receipt</span>
+              </div>
+              <div class="card-line"></div>
+              <div class="card-line-short"></div>
+            </div>
+
+            <div class="floating-card floating-card-2">
+              <div class="card-icon-success">
+                <span class="material-symbols-outlined">check_circle</span>
+              </div>
+              <div class="card-lines">
+                <div class="card-line"></div>
+                <div class="card-line-half"></div>
+              </div>
+            </div>
+
+            <div class="central-graphic">
+              <div class="graphic-outer-circle">
+                <div class="graphic-inner-circle">
+                  <span class="material-symbols-outlined">spa</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- How It Works Section -->
+  <section class="how-it-works" id="como-funciona">
+    <div class="section-container">
+      <div class="section-header-center">
+        <h2 class="section-title">Cómo funciona tu tranquilidad</h2>
+        <p class="section-subtitle">
+          Un proceso diseñado para eliminar la incertidumbre en tres simples pasos.
+        </p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-icon">
+            <span class="material-symbols-outlined">fact_check</span>
+          </div>
+          <h3 class="step-title">Revisa la checklist</h3>
+          <p class="step-description">
+            Sigue los pasos guiados uno a uno para asegurarte de no olvidar nada importante antes de cerrar el trimestre.
+          </p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-icon">
+            <span class="material-symbols-outlined">upload_file</span>
+          </div>
+          <h3 class="step-title">Sube tus documentos</h3>
+          <p class="step-description">
+            Arrastra tus facturas y recibos. Centralízalo todo en un lugar seguro y ordenado automáticamente.
+          </p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-icon">
+            <span class="material-symbols-outlined">forward_to_inbox</span>
+          </div>
+          <h3 class="step-title">Envía a tu asesor</h3>
+          <p class="step-description">
+            Genera un paquete perfectamente ordenado y notifica a tu gestor con un solo clic. Sin correos perdidos.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- What You Forget Section -->
+  <section class="what-you-forget">
+    <div class="what-you-forget-container">
+      <div class="what-you-forget-grid">
+        <div class="what-you-forget-content">
+          <h2 class="section-title-left">
+            Lo que sueles olvidar deducir
+          </h2>
+          <p class="section-text">
+            Pequeños gastos suman grandes ahorros. Nuestro sistema te recuerda activamente categorías que a menudo se pasan por alto.
+          </p>
+          <a href="#" class="link-primary">
+            Ver lista completa de deducciones
+            <span class="material-symbols-outlined">arrow_forward</span>
+          </a>
+        </div>
+
+        <div class="categories-grid">
+          <div class="category-card">
+            <div class="category-icon">
+              <span class="material-symbols-outlined">subscriptions</span>
+            </div>
+            <div class="category-content">
+              <h4 class="category-title">Suscripciones</h4>
+              <p class="category-description">Software, revistas, servicios cloud.</p>
+            </div>
+          </div>
+
+          <div class="category-card">
+            <div class="category-icon">
+              <span class="material-symbols-outlined">directions_bus</span>
+            </div>
+            <div class="category-content">
+              <h4 class="category-title">Transporte</h4>
+              <p class="category-description">Tickets de metro, taxi, parking.</p>
+            </div>
+          </div>
+
+          <div class="category-card">
+            <div class="category-icon">
+              <span class="material-symbols-outlined">school</span>
+            </div>
+            <div class="category-content">
+              <h4 class="category-title">Formación</h4>
+              <p class="category-description">Cursos, libros técnicos, talleres.</p>
+            </div>
+          </div>
+
+          <div class="category-card">
+            <div class="category-icon">
+              <span class="material-symbols-outlined">gavel</span>
+            </div>
+            <div class="category-content">
+              <h4 class="category-title">Seguros RC</h4>
+              <p class="category-description">Primas de responsabilidad civil.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Memory Section -->
+  <section class="memory-section">
+    <div class="memory-bg-decoration"></div>
+    <div class="section-container">
+      <div class="memory-card">
+        <div class="memory-grid">
+          <!-- Diagram -->
+          <div class="memory-diagram">
+            <div class="diagram-container">
+              <div class="quarter-box quarter-past">
+                <span class="quarter-label">Trimestre 1</span>
+                <div class="quarter-lines">
+                  <div class="line"></div>
+                  <div class="line line-short"></div>
+                  <div class="line"></div>
+                </div>
+              </div>
+
+              <div class="diagram-arrow">
+                <div class="arrow-line"></div>
+                <div class="arrow-icon">
+                  <span class="material-symbols-outlined">psychology</span>
+                </div>
+                <div class="arrow-head"></div>
+              </div>
+
+              <div class="quarter-box quarter-active">
+                <div class="active-badge">ACTIVO</div>
+                <span class="quarter-label">Trimestre 2</span>
+                <div class="quarter-lines quarter-lines-active">
+                  <div class="line"></div>
+                  <div class="line line-short"></div>
+                  <div class="line line-medium"></div>
+                  <div class="line"></div>
+                </div>
+                <div class="preloaded-badge">
+                  <span class="material-symbols-outlined">auto_awesome</span>
+                  <span>Datos precargados</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="memory-content">
+            <div class="memory-badge">Memoria inteligente</div>
+            <h2 class="section-title-left">Cada trimestre es más fácil</h2>
+            <p class="section-text">
+              No empieces de cero cada vez. Nuestra "Memoria Trimestral" aprende de tus periodos anteriores, sugiriendo gastos recurrentes y rellenando datos por ti. Tu carga de trabajo disminuye con el tiempo.
+            </p>
+            <button class="link-underlined">
+              Descubre cómo funciona la memoria
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="final-cta">
+    <div class="final-cta-container">
+      <h2 class="final-cta-title">Empieza a sentir la calma</h2>
+      <p class="final-cta-subtitle">
+        Únete a cientos de autónomos que han dejado de temer al cierre del trimestre.
+      </p>
+      <a href={`${baseUrl}login`} class="btn-primary-large btn-cta-shadow">
+        Crear mi cuenta gratis
+      </a>
+      <p class="final-cta-note">
+        Sin tarjeta de crédito requerida • Cancela cuando quieras
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <span class="material-symbols-outlined">spa</span>
+            <span class="footer-logo-text">Sophilux</span>
+          </div>
+          <p class="footer-description">
+            Herramientas financieras diseñadas para humanos, no para contables.
+          </p>
+        </div>
+
+        <div class="footer-links">
+          <a href="#">Términos</a>
+          <a href="#">Privacidad</a>
+          <a href="#">Ayuda</a>
+          <a href="#">Contacto</a>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span class="footer-copyright">
+          © 2026 Sophilux. Todos los derechos reservados.
+        </span>
+        <div class="footer-badge">
+          <span class="badge-dot"></span>
+          <span class="badge-text">Parte del ecosistema Sophilux</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+</Landing>
+
+<style>
+  /* === NAVBAR === */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    width: 100%;
+    background: rgba(250, 248, 245, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .navbar-container {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-lg);
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(184, 137, 125, 0.2);
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-text {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .navbar-menu {
+    display: none;
+    align-items: center;
+    gap: var(--spacing-lg);
+  }
+
+  @media (min-width: 768px) {
+    .navbar-menu {
+      display: flex;
+    }
+  }
+
+  .nav-link {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-base);
+  }
+
+  .nav-link:hover {
+    color: var(--color-primary);
+  }
+
+  .btn-nav-cta {
+    background: var(--color-primary);
+    color: white;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: var(--radius-lg);
+    text-decoration: none;
+    transition: all var(--transition-base);
+    box-shadow: 0 2px 8px rgba(184, 137, 125, 0.1);
+  }
+
+  .btn-nav-cta:hover {
+    background: var(--color-primary-hover);
+    box-shadow: 0 4px 12px rgba(184, 137, 125, 0.2);
+  }
+
+  .menu-toggle {
+    display: block;
+    background: none;
+    border: none;
+    color: var(--text-main);
+    cursor: pointer;
+    padding: var(--spacing-sm);
+  }
+
+  @media (min-width: 768px) {
+    .menu-toggle {
+      display: none;
+    }
+  }
+
+  /* === HERO SECTION === */
+  .hero-section {
+    position: relative;
+    overflow: hidden;
+    padding: 48px 0 96px 0;
+  }
+
+  @media (min-width: 768px) {
+    .hero-section {
+      padding: 96px 0 128px 0;
+    }
+  }
+
+  .hero-container {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-lg);
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-2xl);
+    align-items: center;
+  }
+
+  @media (min-width: 1024px) {
+    .hero-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    max-width: 560px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: 9999px;
+    background: rgba(184, 137, 125, 0.1);
+    width: fit-content;
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .hero-title {
+    font-family: var(--font-serif);
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  @media (min-width: 768px) {
+    .hero-title {
+      font-size: 4rem;
+    }
+  }
+
+  .hero-subtitle {
+    font-size: var(--font-size-lg);
+    font-weight: 300;
+    line-height: 1.75;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .hero-features {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    padding: 0;
+    list-style: none;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--text-main);
+  }
+
+  .feature-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(74, 124, 89, 0.2);
+    color: var(--color-success);
+    flex-shrink: 0;
+  }
+
+  .feature-icon .material-symbols-outlined {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .hero-cta {
+    padding-top: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  @media (min-width: 640px) {
+    .hero-cta {
+      flex-direction: row;
+    }
+  }
+
+  .btn-primary-large {
+    height: 56px;
+    padding: 0 var(--spacing-xl);
+    background: var(--color-primary);
+    color: white;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    border-radius: var(--radius-xl);
+    box-shadow: 0 10px 40px -10px rgba(184, 137, 125, 0.25);
+    transition: all var(--transition-base);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    text-decoration: none;
+  }
+
+  .btn-primary-large:hover {
+    background: var(--color-primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 15px 50px -10px rgba(184, 137, 125, 0.35);
+  }
+
+  /* Hero Illustration */
+  .hero-illustration {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .illustration-bg {
+    position: absolute;
+    inset: 0;
+    width: 120%;
+    height: 120%;
+    background: linear-gradient(135deg, #EFEBE6 0%, #F5F2EE 100%);
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.6;
+    z-index: -1;
+  }
+
+  .illustration-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 500px;
+    background: white;
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--border-soft);
+    padding: var(--spacing-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .floating-card {
+    position: absolute;
+    background: white;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: var(--spacing-sm);
+  }
+
+  .floating-card-1 {
+    top: 20%;
+    right: 15%;
+    width: 128px;
+    height: 160px;
+    transform: rotate(6deg);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .floating-card-2 {
+    bottom: 20%;
+    left: 15%;
+    width: 160px;
+    height: 96px;
+    transform: rotate(-3deg);
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(184, 137, 125, 0.1);
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .card-icon-success {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(74, 124, 89, 0.1);
+    color: var(--color-success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .card-line {
+    height: 8px;
+    width: 100%;
+    background: #F5F2EE;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  .card-line-short {
+    height: 8px;
+    width: 66%;
+    background: #F5F2EE;
+    border-radius: 4px;
+  }
+
+  .card-line-half {
+    height: 8px;
+    width: 50%;
+    background: #F5F2EE;
+    border-radius: 4px;
+  }
+
+  .card-lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .central-graphic {
+    width: 192px;
+    height: 192px;
+    position: relative;
+    z-index: 0;
+  }
+
+  .graphic-outer-circle {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid rgba(184, 137, 125, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .graphic-inner-circle {
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    background: rgba(184, 137, 125, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .graphic-inner-circle .material-symbols-outlined {
+    font-size: 64px;
+    color: rgba(184, 137, 125, 0.4);
+  }
+
+  /* === HOW IT WORKS === */
+  .how-it-works {
+    padding: 96px 0;
+    background: white;
+  }
+
+  .section-container {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-lg);
+  }
+
+  .section-header-center {
+    text-align: center;
+    max-width: 640px;
+    margin: 0 auto var(--spacing-2xl) auto;
+  }
+
+  .section-title {
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-main);
+  }
+
+  @media (min-width: 768px) {
+    .section-title {
+      font-size: 3rem;
+    }
+  }
+
+  .section-subtitle {
+    font-size: var(--font-size-lg);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-xl);
+  }
+
+  @media (min-width: 768px) {
+    .steps-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .step-card {
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-2xl);
+    background: var(--bg-page);
+    border: 1px solid transparent;
+    transition: all var(--transition-base);
+  }
+
+  .step-card:hover {
+    border-color: rgba(184, 137, 125, 0.2);
+    transform: translateY(-4px);
+  }
+
+  .step-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-main);
+    margin-bottom: var(--spacing-lg);
+    transition: transform var(--transition-base);
+  }
+
+  .step-card:hover .step-icon {
+    transform: scale(1.1);
+  }
+
+  .step-icon .material-symbols-outlined {
+    font-size: 32px;
+    font-weight: 300;
+  }
+
+  .step-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .step-description {
+    color: var(--text-secondary);
+    line-height: 1.75;
+    margin: 0;
+  }
+
+  /* === WHAT YOU FORGET === */
+  .what-you-forget {
+    padding: 96px 0;
+    background: var(--bg-page);
+  }
+
+  .what-you-forget-container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-lg);
+  }
+
+  .what-you-forget-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-2xl);
+    align-items: center;
+  }
+
+  @media (min-width: 768px) {
+    .what-you-forget-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .what-you-forget-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+  }
+
+  .section-title-left {
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  @media (min-width: 768px) {
+    .section-title-left {
+      font-size: 3rem;
+    }
+  }
+
+  .section-text {
+    font-size: var(--font-size-lg);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .link-primary {
+    color: var(--color-primary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    text-decoration: none;
+    transition: color var(--transition-base);
+    width: fit-content;
+  }
+
+  .link-primary:hover {
+    color: var(--color-primary-hover);
+  }
+
+  .link-primary .material-symbols-outlined {
+    font-size: 14px;
+    transition: transform var(--transition-base);
+  }
+
+  .link-primary:hover .material-symbols-outlined {
+    transform: translateX(4px);
+  }
+
+  .categories-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  @media (min-width: 640px) {
+    .categories-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .category-card {
+    background: white;
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-soft);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    transition: all var(--transition-base);
+  }
+
+  .category-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  .category-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(212, 168, 75, 0.1);
+    color: var(--color-warning);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .category-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 var(--spacing-xs) 0;
+  }
+
+  .category-description {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* === MEMORY SECTION === */
+  .memory-section {
+    padding: 96px 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .memory-bg-decoration {
+    position: absolute;
+    inset: 0;
+    background: rgba(184, 137, 125, 0.05);
+    transform: skewY(-3deg) scale(1.1);
+    transform-origin: top left;
+  }
+
+  .memory-card {
+    position: relative;
+    z-index: 10;
+    background: white;
+    border-radius: var(--radius-3xl);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-soft);
+  }
+
+  @media (min-width: 768px) {
+    .memory-card {
+      padding: var(--spacing-2xl) var(--spacing-3xl);
+    }
+  }
+
+  .memory-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-2xl);
+    align-items: center;
+  }
+
+  @media (min-width: 768px) {
+    .memory-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .memory-diagram {
+    display: flex;
+    justify-content: center;
+  }
+
+  .diagram-container {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    height: 256px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--spacing-md);
+  }
+
+  .quarter-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    position: relative;
+  }
+
+  .quarter-past {
+    width: 112px;
+    height: 128px;
+    background: #F5F2EE;
+    border: 2px dashed #E8E4E0;
+    opacity: 0.6;
+  }
+
+  .quarter-active {
+    width: 128px;
+    height: 160px;
+    background: white;
+    border: 2px solid var(--color-primary);
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+  }
+
+  .active-badge {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    background: var(--color-primary);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 9999px;
+  }
+
+  .quarter-label {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .quarter-active .quarter-label {
+    color: var(--text-main);
+    font-size: var(--font-size-sm);
+  }
+
+  .quarter-lines {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .line {
+    height: 8px;
+    width: 100%;
+    background: #E8E4E0;
+    border-radius: 4px;
+  }
+
+  .line-short {
+    width: 75%;
+  }
+
+  .line-medium {
+    width: 85%;
+  }
+
+  .quarter-lines-active .line {
+    background: rgba(184, 137, 125, 0.2);
+  }
+
+  .preloaded-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--color-success);
+    font-weight: 500;
+    margin-top: var(--spacing-sm);
+  }
+
+  .preloaded-badge .material-symbols-outlined {
+    font-size: 12px;
+  }
+
+  .diagram-arrow {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin: 0 var(--spacing-md);
+  }
+
+  .arrow-line {
+    flex: 1;
+    height: 1px;
+    background: var(--color-primary);
+  }
+
+  .arrow-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 0 var(--spacing-xs);
+    color: var(--color-primary);
+  }
+
+  .arrow-icon .material-symbols-outlined {
+    font-size: 20px;
+  }
+
+  .arrow-head {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    border-top: 1px solid var(--color-primary);
+    border-right: 1px solid var(--color-primary);
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .memory-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    text-align: left;
+  }
+
+  .memory-badge {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: 9999px;
+    background: rgba(184, 137, 125, 0.1);
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    width: fit-content;
+  }
+
+  .link-underlined {
+    color: var(--text-main);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--color-primary);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: var(--font-size-base);
+    width: fit-content;
+    transition: color var(--transition-base);
+  }
+
+  .link-underlined:hover {
+    color: var(--color-primary);
+  }
+
+  /* === FINAL CTA === */
+  .final-cta {
+    padding: 80px 0;
+    text-align: center;
+  }
+
+  .final-cta-container {
+    max-width: 768px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-lg);
+  }
+
+  .final-cta-title {
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: var(--spacing-lg);
+  }
+
+  @media (min-width: 768px) {
+    .final-cta-title {
+      font-size: 3.5rem;
+    }
+  }
+
+  .final-cta-subtitle {
+    font-size: var(--font-size-xl);
+    font-weight: 300;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-2xl);
+  }
+
+  .btn-cta-shadow {
+    box-shadow: 0 20px 50px -10px rgba(184, 137, 125, 0.3);
+  }
+
+  .btn-cta-shadow:hover {
+    box-shadow: 0 25px 60px -10px rgba(184, 137, 125, 0.4);
+    transform: translateY(-4px);
+  }
+
+  .final-cta-note {
+    margin-top: var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+  }
+
+  /* === FOOTER === */
+  .footer {
+    background: white;
+    border-top: 1px solid var(--border-soft);
+    padding: var(--spacing-3xl) 0 var(--spacing-xl) 0;
+  }
+
+  .footer-container {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-lg);
+  }
+
+  .footer-top {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    align-items: center;
+    margin-bottom: var(--spacing-3xl);
+  }
+
+  @media (min-width: 768px) {
+    .footer-top {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+  }
+
+  .footer-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  @media (min-width: 768px) {
+    .footer-brand {
+      align-items: flex-start;
+    }
+  }
+
+  .footer-logo {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--text-main);
+  }
+
+  .footer-logo .material-symbols-outlined {
+    font-size: 24px;
+  }
+
+  .footer-logo-text {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+  }
+
+  .footer-description {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    max-width: 320px;
+    text-align: center;
+    margin: 0;
+  }
+
+  @media (min-width: 768px) {
+    .footer-description {
+      text-align: left;
+    }
+  }
+
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-lg) var(--spacing-2xl);
+  }
+
+  .footer-links a {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-base);
+  }
+
+  .footer-links a:hover {
+    color: var(--color-primary);
+  }
+
+  .footer-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-xl);
+    border-top: 1px solid var(--border-soft);
+  }
+
+  @media (min-width: 768px) {
+    .footer-bottom {
+      flex-direction: row;
+      justify-content: space-between;
+    }
+  }
+
+  .footer-copyright {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+  }
+
+  .footer-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--bg-page);
+    border-radius: 9999px;
+    border: 1px solid var(--border-soft);
+  }
+
+  .badge-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+  }
+
+  .badge-text {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+</style>

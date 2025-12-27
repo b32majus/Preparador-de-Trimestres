@@ -1,0 +1,66 @@
+---
+interface Props {
+  status: string;
+  variant?: 'primary' | 'success' | 'info';
+}
+
+const { status, variant = 'primary' } = Astro.props;
+
+const variantClasses = {
+  primary: 'badge-primary',
+  success: 'badge-success',
+  info: 'badge-info'
+};
+---
+
+<span class={`badge badge-status ${variantClasses[variant]}`}>
+  {status}
+</span>
+
+<style>
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-status::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .badge-primary {
+    background: rgba(184, 137, 125, 0.1);
+    color: var(--color-primary);
+  }
+
+  .badge-primary::before {
+    background: var(--color-primary);
+  }
+
+  .badge-success {
+    background: rgba(74, 124, 89, 0.1);
+    color: var(--color-success);
+  }
+
+  .badge-success::before {
+    background: var(--color-success);
+  }
+
+  .badge-info {
+    background: rgba(107, 156, 186, 0.1);
+    color: var(--color-info);
+  }
+
+  .badge-info::before {
+    background: var(--color-info);
+  }
+</style>

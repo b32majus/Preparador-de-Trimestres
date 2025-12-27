@@ -1,0 +1,365 @@
+---
+import Badge from '../ui/Badge.astro';
+
+interface Props {
+  documents: Array<{
+    id: string;
+    original_name: string;
+    file_size: number;
+    mime_type: string;
+    section: string;
+    is_recurring: boolean;
+    concept_label?: string;
+    created_at: string;
+  }>;
+  trimestreId: string;
+}
+
+const { documents, trimestreId } = Astro.props;
+
+// Agrupar por sección
+const groupedDocs = {
+  ingresos: documents.filter(d => d.section === 'ingresos'),
+  gastos: documents.filter(d => d.section === 'gastos'),
+  banco: documents.filter(d => d.section === 'banco'),
+  otros: documents.filter(d => d.section === 'otros')
+};
+
+const sectionLabels = {
+  ingresos: 'INGRESOS',
+  gastos: 'GASTOS',
+  banco: 'BANCO',
+  otros: 'OTROS'
+};
+
+function getFileIcon(mimeType: string): string {
+  if (mimeType.includes('pdf')) return 'picture_as_pdf';
+  if (mimeType.includes('image')) return 'image';
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return 'table_chart';
+  return 'description';
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatRelativeTime(timestamp: string): string {
+  const now = new Date();
+  const uploaded = new Date(timestamp);
+  const diffMs = now.getTime() - uploaded.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Justo ahora';
+  if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
+  if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+  if (diffDays === 1) return 'Ayer';
+  if (diffDays < 7) return `Hace ${diffDays} días`;
+  return uploaded.toLocaleDateString('es-ES');
+}
+---
+
+<div class="document-list-container">
+  <h3 class="list-title">Documentos ({documents.length})</h3>
+
+  {Object.entries(groupedDocs).map(([section, docs]) => (
+    docs.length > 0 && (
+      <div class="section-group" data-section={section}>
+        <h4 class="section-label">{sectionLabels[section]} ({docs.length})</h4>
+
+        <div class="docs-grid">
+          {docs.map(doc => (
+            <div class="doc-card" data-doc-id={doc.id}>
+              <div class="doc-icon">
+                <span class="material-symbols-outlined">{getFileIcon(doc.mime_type)}</span>
+              </div>
+
+              <div class="doc-info">
+                <p class="doc-name">{doc.original_name}</p>
+                <p class="doc-meta">{formatFileSize(doc.file_size)} • {formatRelativeTime(doc.created_at)}</p>
+
+                {doc.is_recurring && (
+                  <div class="doc-tags">
+                    <Badge status="Recurrente" variant="info" />
+                    {doc.concept_label && (
+                      <p class="concept-label">{doc.concept_label}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <button
+                class="delete-btn"
+                data-delete={doc.id}
+                title="Eliminar documento"
+              >
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  ))}
+
+  {documents.length === 0 && (
+    <div class="empty-state">
+      <span class="material-symbols-outlined">folder_open</span>
+      <p>No hay documentos aún</p>
+    </div>
+  )}
+</div>
+
+<script>
+  import { supabase } from '../../lib/supabase.js';
+
+  // Delete document functionality
+  document.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+
+      const docId = btn.dataset.delete;
+      const confirmed = confirm('¿Eliminar este documento?');
+
+      if (!confirmed) return;
+
+      btn.disabled = true;
+
+      try {
+        // Get document info to delete from storage
+        const { data: doc, error: fetchError } = await supabase
+          .from('documents')
+          .select('file_path')
+          .eq('id', docId)
+          .single();
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        // Delete from storage
+        if (doc.file_path) {
+          const { error: storageError } = await supabase.storage
+            .from('documents')
+            .remove([doc.file_path]);
+
+          if (storageError) {
+            console.error('Storage deletion error:', storageError);
+          }
+        }
+
+        // Delete from database
+        const { error: dbError } = await supabase
+          .from('documents')
+          .delete()
+          .eq('id', docId);
+
+        if (dbError) {
+          throw dbError;
+        }
+
+        // Remove from UI with animation
+        const docCard = btn.closest('[data-doc-id]');
+        docCard.style.opacity = '0';
+        docCard.style.transform = 'translateX(10px)';
+
+        setTimeout(() => {
+          docCard.remove();
+
+          // Trigger refresh
+          window.dispatchEvent(new CustomEvent('documentDeleted', {
+            detail: { docId }
+          }));
+        }, 200);
+      } catch (error) {
+        console.error('Error deleting document:', error);
+        alert('Error al eliminar documento. Intenta de nuevo.');
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  .document-list-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 2rem;
+    border: 1px solid white;
+  }
+
+  .list-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 1.5rem 0;
+  }
+
+  .section-group {
+    margin-bottom: 2rem;
+  }
+
+  .section-group:last-child {
+    margin-bottom: 0;
+  }
+
+  .section-label {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 1rem 0;
+  }
+
+  .docs-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .doc-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-soft);
+    background: var(--bg-page);
+    transition: all var(--transition-base);
+  }
+
+  .doc-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .doc-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--radius-md);
+    background: rgba(184, 137, 125, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .doc-icon .material-symbols-outlined {
+    color: var(--color-primary);
+    font-size: 1.5rem;
+  }
+
+  .doc-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .doc-name {
+    font-weight: 600;
+    color: var(--text-main);
+    font-size: var(--font-size-base);
+    margin: 0 0 0.25rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .doc-meta {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .doc-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .concept-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-style: italic;
+    margin: 0.25rem 0 0 0;
+  }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    opacity: 0;
+    transition: all var(--transition-base);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .doc-card:hover .delete-btn {
+    opacity: 1;
+  }
+
+  .delete-btn:hover {
+    background: #FEE2E2;
+    color: #EF4444;
+  }
+
+  .delete-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .empty-state span {
+    font-size: 3rem;
+    opacity: 0.4;
+    margin-bottom: 1rem;
+  }
+
+  .empty-state p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  @media (max-width: 640px) {
+    .document-list-container {
+      padding: 1.5rem;
+    }
+
+    .list-title {
+      font-size: var(--font-size-xl);
+    }
+
+    .doc-card {
+      padding: 0.75rem;
+    }
+
+    .doc-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+
+    .doc-icon .material-symbols-outlined {
+      font-size: 1.25rem;
+    }
+  }
+</style>

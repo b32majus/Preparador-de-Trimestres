@@ -1,0 +1,199 @@
+---
+import '../styles/global.css';
+import AuthGuard from '../components/AuthGuard.astro';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+const baseUrl = import.meta.env.BASE_URL;
+---
+
+<AuthGuard>
+  <!doctype html>
+  <html lang="es">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width" />
+      <link rel="icon" type="image/svg+xml" href={`${baseUrl}favicon.svg`} />
+      <meta name="generator" content={Astro.generator} />
+      <title>{title}</title>
+    </head>
+    <body>
+      <div class="app-layout">
+        <header class="app-header">
+          <div class="header-content">
+            <div class="logo">
+              <a href={`${baseUrl}dashboard`}>
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="32" height="32" rx="8" fill="var(--color-primary)" />
+                  <path d="M10 12h12M10 16h12M10 20h8" stroke="white" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span class="logo-text">Preparador de Trimestres</span>
+              </a>
+            </div>
+
+            <div class="header-actions">
+              <div class="user-info">
+                <span class="user-email" id="user-email-display"></span>
+              </div>
+              <button id="logout-btn" class="btn-logout">
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div class="app-container">
+          <slot />
+        </div>
+      </div>
+    </body>
+  </html>
+</AuthGuard>
+
+<script define:vars={{ baseUrl }}>
+  import { supabase } from '../lib/supabase.js';
+
+  // Obtener y mostrar email del usuario
+  async function loadUserEmail() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      document.getElementById('user-email-display').textContent = user.email;
+    }
+  }
+
+  // Logout handler
+  const logoutBtn = document.getElementById('logout-btn');
+
+  logoutBtn?.addEventListener('click', async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error('Logout error:', error);
+        alert('Error al cerrar sesión. Inténtalo de nuevo.');
+        return;
+      }
+
+      // Redirigir a login
+      window.location.href = `${baseUrl}login`;
+
+    } catch (error) {
+      console.error('Unexpected logout error:', error);
+      alert('Error inesperado al cerrar sesión.');
+    }
+  });
+
+  loadUserEmail();
+</script>
+
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+  }
+
+  .app-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .app-header {
+    background-color: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
+  .header-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--spacing-md) var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .logo a {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .logo-text {
+    font-size: var(--font-size-lg);
+    white-space: nowrap;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+  }
+
+  .user-info {
+    display: flex;
+    align-items: center;
+  }
+
+  .user-email {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .btn-logout {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-base) var(--transition-timing);
+  }
+
+  .btn-logout:hover {
+    background-color: var(--color-neutral-100);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+  }
+
+  .btn-logout:active {
+    background-color: var(--color-neutral-200);
+  }
+
+  .app-container {
+    flex: 1;
+    display: flex;
+  }
+
+  @media (max-width: 640px) {
+    .user-email {
+      display: none;
+    }
+
+    .logo-text {
+      display: none;
+    }
+
+    .header-content {
+      padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    .header-actions {
+      gap: var(--spacing-md);
+    }
+  }
+</style>

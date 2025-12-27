@@ -1,0 +1,373 @@
+---
+interface Props {
+  trimestreId: string;
+  status: string;
+}
+
+const { trimestreId, status } = Astro.props;
+const isReady = status === 'ready' || status === 'sent';
+---
+
+{isReady && (
+  <div class="download-package-container" data-trimestre-id={trimestreId}>
+    <h3 class="title">Descargar documentación</h3>
+    <p class="description">
+      Tu trimestre está listo. Descarga el paquete completo para enviar a tu asesor.
+    </p>
+
+    <div class="buttons-grid">
+      <button class="btn-download" data-action="download-zip">
+        <span class="material-symbols-outlined">folder_zip</span>
+        <div class="btn-text">
+          <span class="btn-title">Paquete completo (ZIP)</span>
+          <span class="btn-subtitle">Incluye todos los documentos y resúmenes</span>
+        </div>
+      </button>
+
+      <button class="btn-download secondary" data-action="download-executive">
+        <span class="material-symbols-outlined">picture_as_pdf</span>
+        <div class="btn-text">
+          <span class="btn-title">Resumen Ejecutivo (PDF)</span>
+          <span class="btn-subtitle">1 página con lo esencial</span>
+        </div>
+      </button>
+
+      <button class="btn-download secondary" data-action="download-complete">
+        <span class="material-symbols-outlined">description</span>
+        <div class="btn-text">
+          <span class="btn-title">Resumen Completo (PDF)</span>
+          <span class="btn-subtitle">Detallado con checklist</span>
+        </div>
+      </button>
+
+      <button class="btn-download secondary" data-action="download-certificate">
+        <span class="material-symbols-outlined">workspace_premium</span>
+        <div class="btn-text">
+          <span class="btn-title">Certificado de Cierre (PDF)</span>
+          <span class="btn-subtitle">Elegante y celebratorio</span>
+        </div>
+      </button>
+    </div>
+
+    <div class="text-templates">
+      <h4 class="templates-title">Textos para copiar</h4>
+      <div class="templates-grid">
+        <button class="btn-copy" data-copy="email">
+          <span class="material-symbols-outlined">email</span>
+          <span>Copiar email</span>
+        </button>
+        <button class="btn-copy" data-copy="whatsapp">
+          <span class="material-symbols-outlined">chat</span>
+          <span>Copiar WhatsApp</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="loading-overlay" style="display: none;">
+      <div class="spinner"></div>
+      <p>Generando documentos...</p>
+    </div>
+  </div>
+)}
+
+<script>
+  import { generateAndDownloadZip } from '../../lib/generators/zipPackage.js';
+  import { generateResumenEjecutivo } from '../../lib/generators/resumenEjecutivo.js';
+  import { generateResumenCompleto } from '../../lib/generators/resumenCompleto.js';
+  import { generateCertificado } from '../../lib/generators/certificado.js';
+  import { generateEmailText, generateWhatsAppText } from '../../lib/generators/textTemplates.js';
+  import { getDocuments, getChecklistItems, getNotes } from '../../lib/supabase.js';
+  import { saveAs } from 'file-saver';
+
+  const container = document.querySelector('.download-package-container');
+  if (!container) {
+    console.log('DownloadPackage component not mounted or not visible');
+  } else {
+    const loading = container.querySelector('.loading-overlay');
+
+    function showLoading() {
+      loading.style.display = 'flex';
+    }
+
+    function hideLoading() {
+      loading.style.display = 'none';
+    }
+
+    // Get trimestre ID from parent element
+    const trimestreId = container?.dataset.trimestreId;
+    if (!trimestreId) {
+      console.error('No trimestreId found');
+    } else {
+      // Download ZIP
+      container.querySelector('[data-action="download-zip"]')?.addEventListener('click', async () => {
+        showLoading();
+        try {
+          // Fetch all data
+          const [{ data: documents }, { data: checklistItems }, { data: notes }] = await Promise.all([
+            getDocuments(trimestreId),
+            getChecklistItems(trimestreId),
+            getNotes(trimestreId)
+          ]);
+
+          // Get trimestre from context (passed from page)
+          const trimestre = window.__TRIMESTRE_DATA__;
+
+          await generateAndDownloadZip(trimestre, documents, checklistItems, notes);
+        } catch (error) {
+          console.error('Error generating ZIP:', error);
+          alert('Error al generar el paquete. Intenta de nuevo.');
+        } finally {
+          hideLoading();
+        }
+      });
+
+      // Download Executive Summary
+      container.querySelector('[data-action="download-executive"]')?.addEventListener('click', async () => {
+        showLoading();
+        try {
+          const [{ data: documents }, { data: checklistItems }, { data: notes }] = await Promise.all([
+            getDocuments(trimestreId),
+            getChecklistItems(trimestreId),
+            getNotes(trimestreId)
+          ]);
+
+          const trimestre = window.__TRIMESTRE_DATA__;
+          const blob = await generateResumenEjecutivo(trimestre, documents, checklistItems, notes);
+          saveAs(blob, `Q${trimestre.quarter}_${trimestre.year}_Resumen_Ejecutivo.pdf`);
+        } catch (error) {
+          console.error('Error generating executive summary:', error);
+          alert('Error al generar el resumen. Intenta de nuevo.');
+        } finally {
+          hideLoading();
+        }
+      });
+
+      // Download Complete Summary
+      container.querySelector('[data-action="download-complete"]')?.addEventListener('click', async () => {
+        showLoading();
+        try {
+          const [{ data: documents }, { data: checklistItems }, { data: notes }] = await Promise.all([
+            getDocuments(trimestreId),
+            getChecklistItems(trimestreId),
+            getNotes(trimestreId)
+          ]);
+
+          const trimestre = window.__TRIMESTRE_DATA__;
+          const blob = await generateResumenCompleto(trimestre, documents, checklistItems, notes);
+          saveAs(blob, `Q${trimestre.quarter}_${trimestre.year}_Resumen_Completo.pdf`);
+        } catch (error) {
+          console.error('Error generating complete summary:', error);
+          alert('Error al generar el resumen completo. Intenta de nuevo.');
+        } finally {
+          hideLoading();
+        }
+      });
+
+      // Download Certificate
+      container.querySelector('[data-action="download-certificate"]')?.addEventListener('click', async () => {
+        showLoading();
+        try {
+          const { data: documents } = await getDocuments(trimestreId);
+          const trimestre = window.__TRIMESTRE_DATA__;
+          const blob = await generateCertificado(trimestre, documents.length);
+          saveAs(blob, `Q${trimestre.quarter}_${trimestre.year}_Certificado.pdf`);
+        } catch (error) {
+          console.error('Error generating certificate:', error);
+          alert('Error al generar el certificado. Intenta de nuevo.');
+        } finally {
+          hideLoading();
+        }
+      });
+
+      // Copy email text
+      container.querySelector('[data-copy="email"]')?.addEventListener('click', async () => {
+        try {
+          const { data: documents } = await getDocuments(trimestreId);
+          const trimestre = window.__TRIMESTRE_DATA__;
+          const text = generateEmailText(trimestre, documents.length);
+
+          await navigator.clipboard.writeText(text);
+          alert('Texto de email copiado al portapapeles');
+        } catch (error) {
+          console.error('Error copying email text:', error);
+          alert('Error al copiar el texto.');
+        }
+      });
+
+      // Copy WhatsApp text
+      container.querySelector('[data-copy="whatsapp"]')?.addEventListener('click', async () => {
+        try {
+          const { data: documents } = await getDocuments(trimestreId);
+          const trimestre = window.__TRIMESTRE_DATA__;
+          const text = generateWhatsAppText(trimestre, documents.length);
+
+          await navigator.clipboard.writeText(text);
+          alert('Texto de WhatsApp copiado al portapapeles');
+        } catch (error) {
+          console.error('Error copying WhatsApp text:', error);
+          alert('Error al copiar el texto.');
+        }
+      });
+    }
+  }
+</script>
+
+<style>
+  .download-package-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 2rem;
+    border: 1px solid white;
+    position: relative;
+  }
+
+  .title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .description {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    margin: 0 0 1.5rem 0;
+  }
+
+  .buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .btn-download {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-align: left;
+  }
+
+  .btn-download.secondary {
+    background: var(--bg-page);
+    color: var(--text-main);
+    border: 1px solid var(--border-soft);
+  }
+
+  .btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn-download .material-symbols-outlined {
+    font-size: 2rem;
+    flex-shrink: 0;
+  }
+
+  .btn-download.secondary .material-symbols-outlined {
+    color: var(--color-primary);
+  }
+
+  .btn-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .btn-title {
+    font-weight: 600;
+    font-size: var(--font-size-base);
+  }
+
+  .btn-subtitle {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+  }
+
+  .text-templates {
+    border-top: 1px solid var(--border-soft);
+    padding-top: 1.5rem;
+  }
+
+  .templates-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 1rem 0;
+  }
+
+  .templates-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .btn-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-page);
+    color: var(--text-main);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    font-size: var(--font-size-sm);
+  }
+
+  .btn-copy:hover {
+    border-color: var(--color-primary);
+    background: rgba(184, 137, 125, 0.05);
+  }
+
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: var(--radius-xl);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    z-index: 100;
+  }
+
+  .spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid var(--border-soft);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 768px) {
+    .buttons-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .templates-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

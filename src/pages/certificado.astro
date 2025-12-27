@@ -1,0 +1,606 @@
+---
+import App from '../layouts/App.astro';
+
+const baseUrl = import.meta.env.BASE_URL;
+const trimestreId = Astro.url.searchParams.get('id');
+---
+
+<App title="Certificado de Cierre">
+  <div id="loading-certificado" class="loading-container">
+    <div class="spinner"></div>
+    <p>Cargando certificado...</p>
+  </div>
+
+  <div id="certificado-content" style="display: none;">
+    <div class="certificado-page">
+      <div class="certificate-container">
+        <div class="accent-bar"></div>
+
+        <div class="certificate-content">
+          <div class="certificate-header">
+            <div class="logo-group">
+              <div class="logo-icon">
+                <span class="material-symbols-outlined">spa</span>
+              </div>
+              <span class="logo-text">Sophilux</span>
+            </div>
+
+            <div class="center-text">
+              <span>Preparador de Trimestres</span>
+            </div>
+
+            <div class="header-actions">
+              <button class="icon-btn" onclick="window.print()">
+                <span class="material-symbols-outlined">settings</span>
+              </button>
+              <a href={`${baseUrl}dashboard`} class="icon-btn">
+                <span class="material-symbols-outlined">account_circle</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="title-section">
+            <h1>CERTIFICADO DE CIERRE</h1>
+          </div>
+
+          <!-- Dynamic content will be rendered here -->
+          <div id="trimestre-info"></div>
+          <div id="stats-grid"></div>
+          <div id="quote-section"></div>
+
+          <div class="certificate-footer">
+            <span>Sophilux © 2026</span>
+            <span class="dot"></span>
+            <a href="#">Ayuda</a>
+          </div>
+        </div>
+
+        <div class="bottom-gradient"></div>
+      </div>
+
+      <div class="action-buttons no-print">
+        <button class="btn-download" data-action="download-certificate">
+          <span class="material-symbols-outlined">download</span>
+          Descargar PDF
+        </button>
+        <button class="btn-share">
+          <span class="material-symbols-outlined">share</span>
+          Compartir Logro
+        </button>
+      </div>
+    </div>
+  </div>
+</App>
+
+<script define:vars={{ baseUrl, trimestreId }}>
+  import { supabase } from '../lib/supabase.js';
+  import { getDocuments, getChecklistItems, getExpectedDocuments } from '../lib/supabase.js';
+  import { generateCertificado } from '../lib/generators/certificado.js';
+  import { saveAs } from 'file-saver';
+
+  async function loadCertificado() {
+    // 1. Validate trimestreId
+    if (!trimestreId) {
+      window.location.href = `${baseUrl}dashboard`;
+      return;
+    }
+
+    // 2. Get user and validate trimestre
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data: trimestre, error: trimestreError } = await supabase
+      .from('trimestres')
+      .select('*')
+      .eq('id', trimestreId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (trimestreError || !trimestre) {
+      window.location.href = `${baseUrl}dashboard`;
+      return;
+    }
+
+    // 3. Check status
+    if (trimestre.status !== 'ready' && trimestre.status !== 'sent') {
+      window.location.href = `${baseUrl}trimestre?id=${trimestreId}`;
+      return;
+    }
+
+    // 4. Load data in parallel
+    const [
+      { data: documents },
+      { data: checklistItems },
+      { data: expectedDocs }
+    ] = await Promise.all([
+      getDocuments(trimestreId),
+      getChecklistItems(trimestreId),
+      getExpectedDocuments(trimestreId)
+    ]);
+
+    // 5. Calculate stats
+    const stats = {
+      checklistItems: checklistItems.length,
+      documents: documents.length,
+      doubtful: checklistItems.filter(i => i.status === 'doubtful').length,
+      recurring: expectedDocs.filter(e => e.status === 'fulfilled').length
+    };
+
+    const closedDate = new Date(trimestre.closed_at).toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+
+    const nextQuarter = trimestre.quarter === 4 ? 1 : trimestre.quarter + 1;
+    const nextYear = trimestre.quarter === 4 ? trimestre.year + 1 : trimestre.year;
+
+    // 6. Expose trimestre data globally
+    window.__TRIMESTRE_DATA__ = {
+      id: trimestre.id,
+      year: trimestre.year,
+      quarter: trimestre.quarter,
+      status: trimestre.status,
+      closed_at: trimestre.closed_at
+    };
+
+    // 7. Render sections
+    renderTrimestreInfo(trimestre, closedDate);
+    renderStatsGrid(stats, nextQuarter, nextYear);
+    renderQuoteSection();
+
+    // 8. Attach download listener
+    attachDownloadListener();
+
+    // 9. Show content
+    document.getElementById('loading-certificado').style.display = 'none';
+    document.getElementById('certificado-content').style.display = 'block';
+  }
+
+  function renderTrimestreInfo(trimestre, closedDate) {
+    document.getElementById('trimestre-info').innerHTML = `
+      <div class="trimestre-info">
+        <h2>
+          Trimestre Q${trimestre.quarter} ${trimestre.year}
+          <span class="check-icon">
+            <span class="material-symbols-outlined">check</span>
+          </span>
+        </h2>
+        <p class="closed-text">Cerrado el ${closedDate}</p>
+      </div>
+    `;
+  }
+
+  function renderStatsGrid(stats, nextQuarter, nextYear) {
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="material-symbols-outlined">checklist</span>
+          <div>
+            <p class="stat-number">${stats.checklistItems}</p>
+            <p class="stat-label">Ítems de checklist revisados</p>
+          </div>
+        </div>
+
+        <div class="stat-item">
+          <span class="material-symbols-outlined">folder_open</span>
+          <div>
+            <p class="stat-number">${stats.documents}</p>
+            <p class="stat-label">Documentos organizados</p>
+          </div>
+        </div>
+
+        <div class="stat-item">
+          <span class="material-symbols-outlined">help_center</span>
+          <div>
+            <p class="stat-number">${stats.doubtful}</p>
+            <p class="stat-label">Dudas anotadas para tu asesor</p>
+          </div>
+        </div>
+
+        <div class="stat-item">
+          <span class="material-symbols-outlined">savings</span>
+          <div>
+            <p class="stat-number">${stats.recurring}</p>
+            <p class="stat-label">Gastos recurrentes guardados</p>
+            <p class="stat-note">(Te los recordaremos en Q${nextQuarter} ${nextYear})</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderQuoteSection() {
+    document.getElementById('quote-section').innerHTML = `
+      <div class="quote-section">
+        <p class="quote-text">"Puedes soltar esto de tu cabeza."</p>
+        <p class="quote-subtext">Tu asesor tiene todo lo que necesita.</p>
+      </div>
+    `;
+  }
+
+  function attachDownloadListener() {
+    document.querySelector('[data-action="download-certificate"]')?.addEventListener('click', async () => {
+      try {
+        const { data: documents } = await getDocuments(trimestreId);
+        const trimestre = window.__TRIMESTRE_DATA__;
+        const blob = await generateCertificado(trimestre, documents.length);
+        saveAs(blob, `Q${trimestre.quarter}_${trimestre.year}_Certificado.pdf`);
+      } catch (error) {
+        console.error('Error generating certificate:', error);
+        alert('Error al generar el certificado. Intenta de nuevo.');
+      }
+    });
+  }
+
+  loadCertificado();
+</script>
+
+<style>
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    gap: 1rem;
+  }
+
+  .loading-container .spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid var(--border-soft);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-container p {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    .certificate-container {
+      box-shadow: none;
+      border: 1px solid #e5e5e5;
+      margin: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+  }
+
+  .certificado-page {
+    min-height: 100vh;
+    background: var(--bg-page);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    position: relative;
+  }
+
+  .certificate-container {
+    position: relative;
+    width: 100%;
+    max-width: 700px;
+    background: var(--bg-card);
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 5px 15px -5px rgba(0, 0, 0, 0.02);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .accent-bar {
+    height: 0.5rem;
+    width: 100%;
+    background: rgba(184, 137, 125, 0.2);
+  }
+
+  .certificate-content {
+    padding: 2.5rem 4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .certificate-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-soft);
+    padding-bottom: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  .logo-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .logo-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--bg-page);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+  }
+
+  .logo-icon .material-symbols-outlined {
+    font-size: 1.25rem;
+  }
+
+  .logo-text {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+  }
+
+  .center-text {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    letter-spacing: 0.025em;
+    color: var(--text-main);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color var(--transition-base);
+    text-decoration: none;
+  }
+
+  .icon-btn:hover {
+    color: var(--color-primary);
+  }
+
+  .icon-btn .material-symbols-outlined {
+    font-size: 1.375rem;
+  }
+
+  .title-section {
+    margin-bottom: 0.5rem;
+  }
+
+  .title-section h1 {
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: 0.05em;
+    margin: 0;
+  }
+
+  .trimestre-info {
+    margin-bottom: 2.5rem;
+  }
+
+  .trimestre-info h2 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-family: var(--font-serif);
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .check-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: rgba(74, 124, 89, 0.1);
+    color: var(--color-success);
+  }
+
+  .check-icon .material-symbols-outlined {
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .closed-text {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .stats-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem 2rem;
+    text-align: left;
+    border-top: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border-soft);
+    padding: 2rem 0;
+    margin-bottom: 2.5rem;
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .stat-item .material-symbols-outlined {
+    color: var(--color-primary);
+    font-size: 1.5rem;
+    margin-top: 0.125rem;
+  }
+
+  .stat-number {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1;
+    margin: 0 0 0.25rem 0;
+  }
+
+  .stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .stat-note {
+    font-size: var(--font-size-xs);
+    color: var(--color-primary);
+    margin: 0.25rem 0 0 0;
+  }
+
+  .quote-section {
+    width: 100%;
+    background: rgba(184, 137, 125, 0.1);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .quote-text {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    font-style: italic;
+    color: var(--color-primary);
+    margin: 0 0 0.25rem 0;
+  }
+
+  .quote-subtext {
+    font-size: var(--font-size-sm);
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .certificate-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    opacity: 0.6;
+  }
+
+  .certificate-footer .dot {
+    width: 0.25rem;
+    height: 0.25rem;
+    border-radius: 50%;
+    background: var(--text-secondary);
+  }
+
+  .certificate-footer a {
+    color: inherit;
+    text-decoration: none;
+    transition: color var(--transition-base);
+  }
+
+  .certificate-footer a:hover {
+    color: var(--color-primary);
+  }
+
+  .bottom-gradient {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0.25rem;
+    background: linear-gradient(to right, transparent, rgba(184, 137, 125, 0.2), transparent);
+  }
+
+  .action-buttons {
+    position: fixed;
+    bottom: 2rem;
+    display: flex;
+    gap: 0.75rem;
+    z-index: 50;
+  }
+
+  .btn-download, .btn-share {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 9999px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transition: transform var(--transition-base);
+    border: none;
+  }
+
+  .btn-download:hover, .btn-share:hover {
+    transform: translateY(-2px);
+  }
+
+  .btn-download {
+    background: var(--color-neutral-900);
+    color: white;
+  }
+
+  .btn-share {
+    background: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border-soft);
+  }
+
+  .btn-download .material-symbols-outlined,
+  .btn-share .material-symbols-outlined {
+    font-size: 1.25rem;
+  }
+
+  @media (max-width: 768px) {
+    .certificate-content {
+      padding: 2rem 1.5rem;
+    }
+
+    .logo-text {
+      display: none;
+    }
+
+    .title-section h1 {
+      font-size: 2rem;
+    }
+
+    .trimestre-info h2 {
+      font-size: 1.5rem;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

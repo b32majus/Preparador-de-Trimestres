@@ -1,0 +1,235 @@
+---
+import ChecklistItem from './ChecklistItem.astro';
+
+interface Props {
+  sectionName: 'ingresos' | 'gastos' | 'banco' | 'otros';
+  items: Array<{
+    id: string;
+    label: string;
+    help_text?: string;
+    status: 'pending' | 'done' | 'doubtful';
+  }>;
+  isExpanded?: boolean;
+}
+
+const { sectionName, items, isExpanded = false } = Astro.props;
+
+const sectionLabels = {
+  ingresos: 'INGRESOS',
+  gastos: 'GASTOS',
+  banco: 'BANCO',
+  otros: 'OTROS'
+};
+
+const completedCount = items.filter(item => item.status === 'done').length;
+const totalCount = items.length;
+const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+---
+
+<div
+  class={`checklist-section ${isExpanded ? 'expanded' : 'collapsed'}`}
+  data-section={sectionName}
+>
+  <!-- Header (always visible) -->
+  <button
+    class="section-header"
+    data-toggle-section
+    aria-expanded={isExpanded ? 'true' : 'false'}
+  >
+    <div class="header-left">
+      <span class="expand-icon material-symbols-outlined">expand_more</span>
+      <h3 class="section-name">{sectionLabels[sectionName]}</h3>
+      <span class="completion-badge">
+        {completedCount}/{totalCount} completados
+      </span>
+    </div>
+
+    {/* Progress bar (only shown when collapsed) */}
+    {!isExpanded && totalCount > 0 && (
+      <div class="progress-mini">
+        <div class="progress-bar" style={`width: ${progress}%`}></div>
+      </div>
+    )}
+  </button>
+
+  <!-- Content (collapsible) -->
+  {isExpanded && (
+    <div class="section-content">
+      {items.length > 0 ? (
+        items.map(item => (
+          <ChecklistItem item={item} section={sectionName} />
+        ))
+      ) : (
+        <div class="empty-section">
+          <span class="material-symbols-outlined">inbox</span>
+          <p>No hay items en esta sección</p>
+        </div>
+      )}
+    </div>
+  )}
+</div>
+
+<script>
+  // Accordion toggle functionality
+  document.querySelectorAll('[data-toggle-section]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const section = btn.closest('[data-section]');
+      const isExpanded = section.classList.contains('expanded');
+
+      // Toggle expanded state
+      if (isExpanded) {
+        section.classList.remove('expanded');
+        section.classList.add('collapsed');
+        btn.setAttribute('aria-expanded', 'false');
+      } else {
+        section.classList.remove('collapsed');
+        section.classList.add('expanded');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    });
+  });
+</script>
+
+<style>
+  .checklist-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid white;
+    overflow: hidden;
+    transition: all var(--transition-base);
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 1.25rem;
+    background: var(--bg-card);
+    border: none;
+    border-bottom: 1px solid var(--border-soft);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-align: left;
+  }
+
+  .expanded .section-header {
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .collapsed .section-header {
+    border-bottom: none;
+  }
+
+  .section-header:hover {
+    background: var(--bg-page);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+  }
+
+  .expand-icon {
+    color: var(--text-secondary);
+    transition: transform var(--transition-base);
+    font-size: 1.5rem;
+  }
+
+  .expanded .expand-icon {
+    transform: rotate(0deg);
+  }
+
+  .collapsed .expand-icon {
+    transform: rotate(-90deg);
+  }
+
+  .section-name {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .completion-badge {
+    background: #F2EFEA;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    margin-left: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .progress-mini {
+    width: 6rem;
+    height: 0.375rem;
+    background: #EAE4DF;
+    border-radius: 9999px;
+    overflow: hidden;
+    margin-left: auto;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--color-success);
+    border-radius: 9999px;
+    transition: width var(--transition-base);
+  }
+
+  .section-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    overflow: visible;
+  }
+
+  .empty-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .empty-section span {
+    font-size: 3rem;
+    opacity: 0.5;
+    margin-bottom: 1rem;
+  }
+
+  .empty-section p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  @media (max-width: 640px) {
+    .section-header {
+      padding: 0.75rem;
+    }
+
+    .section-name {
+      font-size: var(--font-size-lg);
+    }
+
+    .completion-badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.4rem;
+    }
+
+    .progress-mini {
+      width: 4rem;
+    }
+
+    .expand-icon {
+      font-size: 1.25rem;
+    }
+  }
+</style>

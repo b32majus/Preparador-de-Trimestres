@@ -1,0 +1,323 @@
+---
+interface Props {
+  documents: Array<{
+    id: string;
+    file_name: string;
+    mime_type: string;
+    uploaded_at: string;
+  }>;
+  trimestreId: string;
+}
+
+const { documents, trimestreId } = Astro.props;
+
+function getFileIcon(mimeType: string): string {
+  if (mimeType.includes('pdf')) return 'picture_as_pdf';
+  if (mimeType.includes('image')) return 'image';
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return 'table_chart';
+  return 'description';
+}
+
+function getFileIconClass(mimeType: string): string {
+  if (mimeType.includes('pdf')) return 'icon-red';
+  if (mimeType.includes('image')) return 'icon-blue';
+  return 'icon-gray';
+}
+
+function formatRelativeTime(timestamp: string): string {
+  const now = new Date();
+  const uploaded = new Date(timestamp);
+  const diffMs = now.getTime() - uploaded.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Justo ahora';
+  if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
+  if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+  if (diffDays === 1) return 'Ayer';
+  if (diffDays < 7) return `Hace ${diffDays} días`;
+  return uploaded.toLocaleDateString('es-ES');
+}
+---
+
+<div class="recent-docs-container">
+  <div class="docs-header">
+    <h3 class="docs-title">Documentos recientes</h3>
+    {documents.length > 3 && (
+      <button class="link-btn">Ver todos</button>
+    )}
+  </div>
+
+  <div class="docs-list">
+    {documents.length > 0 ? (
+      documents.slice(0, 3).map(doc => (
+        <div class="doc-item" data-doc-id={doc.id}>
+          <div class={`file-icon ${getFileIconClass(doc.mime_type)}`}>
+            <span class="material-symbols-outlined">{getFileIcon(doc.mime_type)}</span>
+          </div>
+
+          <div class="doc-info">
+            <p class="file-name">{doc.file_name}</p>
+            <p class="upload-time">{formatRelativeTime(doc.uploaded_at)}</p>
+          </div>
+
+          <button
+            class="delete-btn"
+            data-delete={doc.id}
+            data-doc-path={doc.file_path || ''}
+            title="Eliminar documento"
+          >
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+        </div>
+      ))
+    ) : (
+      <div class="empty-docs">
+        <span class="material-symbols-outlined">folder_open</span>
+        <p>No hay documentos aún</p>
+      </div>
+    )}
+  </div>
+</div>
+
+<script>
+  import { supabase } from '../../lib/supabase.js';
+
+  // Delete document
+  document.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+
+      const docId = btn.dataset.delete;
+      const confirmed = confirm('¿Eliminar este documento?');
+
+      if (!confirmed) return;
+
+      btn.disabled = true;
+
+      try {
+        // Get document info to delete from storage
+        const { data: doc, error: fetchError } = await supabase
+          .from('documents')
+          .select('file_path')
+          .eq('id', docId)
+          .single();
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        // Delete from storage
+        if (doc.file_path) {
+          const { error: storageError } = await supabase.storage
+            .from('documents')
+            .remove([doc.file_path]);
+
+          if (storageError) {
+            console.error('Storage deletion error:', storageError);
+          }
+        }
+
+        // Delete from database
+        const { error: dbError } = await supabase
+          .from('documents')
+          .delete()
+          .eq('id', docId);
+
+        if (dbError) {
+          throw dbError;
+        }
+
+        // Remove from UI with animation
+        const docItem = btn.closest('[data-doc-id]');
+        docItem.style.opacity = '0';
+        docItem.style.transform = 'translateX(10px)';
+
+        setTimeout(() => {
+          docItem.remove();
+
+          // Trigger refresh
+          window.dispatchEvent(new CustomEvent('documentDeleted', {
+            detail: { docId }
+          }));
+        }, 200);
+      } catch (error) {
+        console.error('Error deleting document:', error);
+        alert('Error al eliminar documento. Intenta de nuevo.');
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  .recent-docs-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 1.5rem;
+    border: 1px solid white;
+  }
+
+  .docs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .docs-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: rgba(184, 137, 125, 0.3);
+    text-underline-offset: 3px;
+    padding: 0;
+    transition: color var(--transition-base);
+  }
+
+  .link-btn:hover {
+    color: var(--color-primary-hover);
+    text-decoration-color: var(--color-primary-hover);
+  }
+
+  .docs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .doc-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid transparent;
+    transition: all var(--transition-base);
+  }
+
+  .doc-item:hover {
+    background: var(--bg-page);
+    border-color: var(--border-soft);
+  }
+
+  .file-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.25rem;
+  }
+
+  .icon-red {
+    background: #FEE2E2;
+    color: #EF4444;
+  }
+
+  .icon-blue {
+    background: #DBEAFE;
+    color: #3B82F6;
+  }
+
+  .icon-gray {
+    background: #F3F4F6;
+    color: #9CA3AF;
+  }
+
+  .doc-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .file-name {
+    font-weight: 500;
+    color: var(--text-main);
+    font-size: var(--font-size-sm);
+    margin: 0 0 0.25rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .upload-time {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    opacity: 0;
+    transition: all var(--transition-base);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .doc-item:hover .delete-btn {
+    opacity: 1;
+  }
+
+  .delete-btn:hover {
+    background: #FEE2E2;
+    color: #EF4444;
+  }
+
+  .delete-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .empty-docs {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .empty-docs span {
+    font-size: 2rem;
+    opacity: 0.4;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-docs p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  @media (max-width: 640px) {
+    .recent-docs-container {
+      padding: 1rem;
+    }
+
+    .docs-title {
+      font-size: var(--font-size-lg);
+    }
+  }
+</style>

@@ -1,0 +1,86 @@
+---
+import { getContextualMessage } from '../../lib/microcopy.js';
+
+interface Props {
+  dayOfMonth: number;
+  progress: number;
+  lastVisit?: Date;
+}
+
+const { dayOfMonth, progress } = Astro.props;
+
+const message = getContextualMessage(progress, dayOfMonth);
+---
+
+<div class="contextual-message">
+  <span class="icon material-symbols-outlined">{message.icon}</span>
+  <div class="content">
+    <h3 class="title">{message.title}</h3>
+    <p class="message">{message.message}</p>
+  </div>
+</div>
+
+<style>
+  .contextual-message {
+    background: var(--bg-page);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    transition: all var(--transition-base) var(--transition-timing);
+  }
+
+  .contextual-message:hover {
+    box-shadow: var(--shadow-sm);
+  }
+
+  .icon {
+    color: var(--color-primary);
+    font-size: 1.5rem;
+    margin-top: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .content {
+    flex: 1;
+  }
+
+  .title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: var(--spacing-xs);
+    line-height: 1.25;
+  }
+
+  .message {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  @media (max-width: 640px) {
+    .contextual-message {
+      padding: var(--spacing-md);
+      gap: var(--spacing-sm);
+    }
+
+    .icon {
+      font-size: 1.25rem;
+    }
+
+    .title {
+      font-size: var(--font-size-base);
+    }
+
+    .message {
+      font-size: 0.8125rem;
+    }
+  }
+</style>

@@ -1,0 +1,82 @@
+---
+interface Props {
+  progress: number;
+  showPercentage?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+  label?: string;
+}
+
+const { progress, showPercentage = true, size = 'md', label = 'Estado del cierre' } = Astro.props;
+
+// Clamp progress between 0 and 100
+const clampedProgress = Math.min(Math.max(progress, 0), 100);
+
+const sizeClasses = {
+  sm: 'progress-sm',
+  md: 'progress-md',
+  lg: 'progress-lg'
+};
+---
+
+<div class={`progress-container ${sizeClasses[size]}`}>
+  <div class="progress-label">
+    <span>{label}</span>
+    {showPercentage && <span class="percentage">{Math.round(clampedProgress)}%</span>}
+  </div>
+  <div class="progress-bar-bg">
+    <div class="progress-bar-fill" style={`width: ${clampedProgress}%`}></div>
+  </div>
+</div>
+
+<style>
+  .progress-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .percentage {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .progress-bar-bg {
+    width: 100%;
+    height: 8px;
+    background-color: var(--color-neutral-200);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .progress-sm .progress-bar-bg {
+    height: 6px;
+  }
+
+  .progress-md .progress-bar-bg {
+    height: 8px;
+  }
+
+  .progress-lg .progress-bar-bg {
+    height: 12px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      var(--color-primary) 0%,
+      var(--color-primary-light) 100%
+    );
+    border-radius: 999px;
+    transition: width var(--transition-base) var(--transition-timing);
+  }
+</style>

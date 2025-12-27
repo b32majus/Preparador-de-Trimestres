@@ -1,0 +1,235 @@
+---
+import Badge from './Badge.astro';
+import ProgressBar from './ProgressBar.astro';
+import { getQuarterDateRange } from '../../lib/date-utils';
+
+interface Props {
+  trimestre: {
+    id: string;
+    year: number;
+    quarter: number;
+    status?: string;
+    checklist_progress?: number;
+    expected_pending?: number;
+    closed_at?: string;
+  };
+  variant: 'active' | 'past';
+  showCTA?: boolean;
+}
+
+const { trimestre, variant, showCTA = false } = Astro.props;
+
+const baseUrl = import.meta.env.BASE_URL;
+const quarterLabel = `Q${trimestre.quarter}`;
+const quarterDates = getQuarterDateRange(trimestre.quarter);
+const progress = trimestre.checklist_progress || 0;
+
+// Format closed date if available
+const closedDate = trimestre.closed_at ? new Date(trimestre.closed_at).toLocaleDateString('es-ES', {
+  year: 'numeric',
+  month: 'long'
+}) : null;
+
+// Get status badge variant
+const getStatusVariant = (status: string) => {
+  if (status === 'EN CURSO') return 'primary';
+  if (status === 'Cerrado') return 'success';
+  return 'info';
+};
+---
+
+<div class={`trimestre-card ${variant}`}>
+  {variant === 'active' && (
+    <div class="card-header">
+      <Badge status="EN CURSO" variant="primary" />
+    </div>
+  )}
+
+  <h1 class="trimestre-title">{quarterLabel} / {trimestre.year}</h1>
+  <p class="trimestre-dates">{quarterDates}</p>
+
+  {variant === 'active' && (
+    <div class="card-content">
+      <ProgressBar
+        progress={progress}
+        showPercentage={true}
+        size="md"
+      />
+
+      {trimestre.expected_pending && trimestre.expected_pending > 0 && (
+        <div class="expected-badge">
+          <span class="icon material-symbols-outlined">folder_open</span>
+          <span>{trimestre.expected_pending} {trimestre.expected_pending === 1 ? 'gasto esperado' : 'gastos esperados'}</span>
+        </div>
+      )}
+
+      <a href={`${baseUrl}trimestre?id=${trimestre.id}`} class="btn-primary">
+        <span>Continuar cierre</span>
+        <span class="icon-arrow">→</span>
+      </a>
+    </div>
+  )}
+
+  {variant === 'past' && (
+    <div class="past-info">
+      <div class="status-row">
+        <Badge status={trimestre.status || 'Cerrado'} variant={getStatusVariant(trimestre.status || 'Cerrado')} />
+        {closedDate && <span class="past-date">{closedDate}</span>}
+      </div>
+    </div>
+  )}
+</div>
+
+<style>
+  .trimestre-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-soft);
+    padding: var(--spacing-2xl);
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow var(--transition-base) var(--transition-timing);
+  }
+
+  .trimestre-card.active {
+    box-shadow: 0 10px 40px -10px rgba(184, 137, 125, 0.15);
+  }
+
+  .trimestre-card.past {
+    box-shadow: 0 2px 8px -2px rgba(184, 137, 125, 0.08);
+  }
+
+  /* Decorative blur background for active card */
+  .trimestre-card.active::before {
+    content: '';
+    position: absolute;
+    top: -64px;
+    right: -64px;
+    width: 256px;
+    height: 256px;
+    background: rgba(184, 137, 125, 0.05);
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+  }
+
+  .card-header {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .trimestre-title {
+    font-family: var(--font-serif);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--text-main);
+    text-align: center;
+    margin-bottom: var(--spacing-xs);
+    position: relative;
+    z-index: 1;
+  }
+
+  .trimestre-dates {
+    text-align: center;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xl);
+    position: relative;
+    z-index: 1;
+  }
+
+  .card-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    position: relative;
+    z-index: 1;
+  }
+
+  .expected-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background-color: var(--color-neutral-100);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    border-left: 4px solid var(--color-primary);
+  }
+
+  .expected-badge .icon {
+    color: var(--color-primary);
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: 14px 28px;
+    background: var(--color-primary);
+    color: white;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: var(--font-size-base);
+    text-decoration: none;
+    transition: all var(--transition-base) var(--transition-timing);
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-primary:hover {
+    background: var(--color-primary-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .icon-arrow {
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .past-info {
+    position: relative;
+    z-index: 1;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+  }
+
+  .past-date {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 640px) {
+    .trimestre-card {
+      padding: var(--spacing-xl) var(--spacing-lg);
+    }
+
+    .trimestre-title {
+      font-size: 36px;
+    }
+
+    .card-header {
+      margin-bottom: var(--spacing-md);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px 24px;
+    }
+  }
+</style>

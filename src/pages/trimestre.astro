@@ -1,0 +1,2260 @@
+---
+import App from '../layouts/App.astro';
+
+const baseUrl = import.meta.env.BASE_URL;
+const trimestreId = Astro.url.searchParams.get('id');
+---
+
+<App title="Trimestre - Preparador de Trimestres">
+  <div id="loading-trimestre" class="loading-container">
+    <div class="spinner"></div>
+    <p>Cargando trimestre...</p>
+  </div>
+
+  <div id="trimestre-content" class="trimestre-page" style="display: none;">
+    <!-- 2-column grid layout -->
+    <div class="grid-layout">
+      <!-- LEFT COLUMN: Main Content -->
+      <div class="main-column">
+        <!-- Header Card -->
+        <section id="header-card" class="header-card"></section>
+
+        <!-- Expected Expenses Section -->
+        <div id="expected-expenses-section"></div>
+
+        <!-- Checklist Sections (Accordion) -->
+        <div id="sections-list" class="sections-list"></div>
+
+        <!-- Info Signal -->
+        <div id="info-box" style="display: none;"></div>
+
+        <!-- Document List -->
+        <div id="document-list"></div>
+
+        <!-- Notes Section -->
+        <div id="notes-section"></div>
+
+        <!-- Download Package -->
+        <div id="download-package"></div>
+
+        <!-- CTA Button (Sticky) -->
+        <div id="sticky-cta" class="sticky-cta"></div>
+      </div>
+
+      <!-- RIGHT COLUMN: Sidebar -->
+      <div class="sidebar-column">
+        <!-- Tip Box -->
+        <div id="tip-box"></div>
+
+        <!-- Upload Zone -->
+        <div id="upload-zone"></div>
+
+        <!-- Recent Documents -->
+        <div id="recent-documents"></div>
+      </div>
+    </div>
+  </div>
+</App>
+
+<script define:vars={{ baseUrl, trimestreId }}>
+  import { supabase } from '../lib/supabase.js';
+  import { getQuarterDateRange } from '../lib/date-utils.js';
+  import { getRandomNormalizationMessage } from '../lib/normalizationMessages.js';
+  import { getClosureMessage } from '../lib/microcopy.js';
+  import { closeTrimestre } from '../lib/supabase.js';
+
+  async function loadTrimestre() {
+    try {
+      // 1. Validate trimestreId
+      if (!trimestreId) {
+        window.location.href = `${baseUrl}dashboard`;
+        return;
+      }
+
+      // 2. Get user and validate trimestre
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: trimestre, error: trimestreError } = await supabase
+        .from('trimestres')
+        .select('*')
+        .eq('id', trimestreId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (trimestreError || !trimestre) {
+        window.location.href = `${baseUrl}dashboard`;
+        return;
+      }
+
+      // 3. Load data in parallel
+      const [
+        { data: checklistItems },
+        { data: documents },
+        { data: expectedDocs },
+        { data: notes }
+      ] = await Promise.all([
+        supabase.from('checklist_items').select('*').eq('trimestre_id', trimestreId),
+        supabase.from('documents').select('*').eq('trimestre_id', trimestreId).order('created_at', { ascending: false }),
+        supabase.from('expected_documents').select('*, recurring_expenses(concept_label, section)').eq('trimestre_id', trimestreId),
+        supabase.from('notes').select('*').eq('trimestre_id', trimestreId).order('created_at', { ascending: false })
+      ]);
+
+      // 4. Group data by section
+      const sections = ['ingresos', 'gastos', 'banco', 'otros'];
+      const groupedData = sections.map(section => {
+        const items = checklistItems?.filter(item => item.section === section) || [];
+        const sectionDocs = documents?.filter(doc => doc.section === section) || [];
+
+        const completedCount = items.filter(item => item.status === 'done').length;
+        const totalCount = items.length;
+        const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+        return {
+          name: section,
+          items,
+          documents: sectionDocs,
+          completedCount,
+          totalCount,
+          progress
+        };
+      });
+
+      // 5. Format data
+      const quarterLabel = `Q${trimestre.quarter}`;
+      const quarterDates = getQuarterDateRange(trimestre.quarter);
+      const progress = trimestre.checklist_progress || 0;
+
+      const statusBadge = trimestre.status === 'preparation' ? 'En preparación' :
+                         trimestre.status === 'ready' ? 'Listo para enviar' :
+                         'Enviado';
+
+      // Check if there are empty sections for info signal
+      const emptySection = groupedData.find(s => s.name === 'otros' && s.documents.length === 0);
+
+      // Get random normalization message for tip box
+      const normalizationMsg = getRandomNormalizationMessage();
+
+      // Make trimestre data available globally for scripts
+      window.__TRIMESTRE_DATA__ = {
+        id: trimestreId,
+        year: trimestre.year,
+        quarter: trimestre.quarter,
+        status: trimestre.status,
+        closed_at: trimestre.closed_at,
+        checklist_progress: trimestre.checklist_progress
+      };
+
+      // Render all sections
+      renderHeaderCard(quarterLabel, trimestre, quarterDates, progress, statusBadge);
+      renderExpectedExpenses(expectedDocs, trimestreId);
+      renderChecklistSections(groupedData);
+      if (emptySection) renderInfoBox();
+      renderDocumentList(documents, trimestreId);
+      renderNotesSection(notes, trimestreId);
+      if (trimestre.status === 'ready' || trimestre.status === 'sent') {
+        renderDownloadPackage(trimestreId, trimestre.status);
+      }
+      renderStickyCTA(trimestreId);
+      renderTipBox(normalizationMsg);
+      renderUploadZone(trimestreId);
+      renderRecentDocuments(documents?.slice(0, 3) || [], trimestreId);
+
+      // Show content, hide loading
+      document.getElementById('loading-trimestre').style.display = 'none';
+      document.getElementById('trimestre-content').style.display = 'block';
+
+    } catch (error) {
+      console.error('Error loading trimestre:', error);
+      alert('Error al cargar el trimestre. Inténtalo de nuevo.');
+    }
+  }
+
+  function renderHeaderCard(quarterLabel, trimestre, quarterDates, progress, statusBadge) {
+    const statusVariants = {
+      'En preparación': 'primary',
+      'Listo para enviar': 'success',
+      'Enviado': 'info'
+    };
+
+    document.getElementById('header-card').innerHTML = `
+      <div class="header-top">
+        <div class="header-text">
+          <span class="period-label">Periodo actual</span>
+          <h1 class="period-title">${quarterLabel} / ${trimestre.year}</h1>
+        </div>
+        <div class="header-actions">
+          <span class="badge badge-${statusVariants[statusBadge]}">${statusBadge}</span>
+          ${(trimestre.status === 'ready' || trimestre.status === 'sent') ? `
+            <a href="${baseUrl}resumen?id=${trimestreId}" class="btn-resumen">
+              <span class="material-symbols-outlined">summarize</span>
+              <span>Ver Resumen</span>
+            </a>
+          ` : ''}
+        </div>
+      </div>
+
+      <div class="progress-container">
+        <div class="progress-header">
+          <span class="progress-label">Progreso general</span>
+          <span class="progress-percentage">${progress}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: ${progress}%"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderExpectedExpenses(expectedDocs, trimestreId) {
+    if (!expectedDocs || expectedDocs.length === 0) {
+      document.getElementById('expected-expenses-section').innerHTML = '';
+      return;
+    }
+
+    const pendingCount = expectedDocs.filter(d => d.status === 'pending').length;
+    const fulfilledCount = expectedDocs.filter(d => d.status === 'fulfilled').length;
+
+    const itemsHTML = expectedDocs.map(doc => {
+      if (doc.status === 'pending') {
+        return `
+          <div class="expected-item status-pending">
+            <label class="checkbox-item">
+              <input
+                type="checkbox"
+                class="expected-checkbox"
+                data-expected-id="${doc.id}"
+                data-trimestre-id="${trimestreId}"
+              />
+              <span class="item-label">${doc.recurring_expenses.concept_label}</span>
+            </label>
+          </div>
+        `;
+      } else if (doc.status === 'fulfilled') {
+        return `
+          <div class="expected-item status-fulfilled">
+            <div class="fulfilled-item">
+              <span class="icon material-symbols-outlined">check_circle</span>
+              <span class="item-label strikethrough">${doc.recurring_expenses.concept_label}</span>
+              <span class="fulfilled-badge">Ya subido</span>
+            </div>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="expected-item status-dismissed">
+            <div class="dismissed-item">
+              <span class="icon material-symbols-outlined">cancel</span>
+              <span class="item-label strikethrough">${doc.recurring_expenses.concept_label}</span>
+              <span class="dismissed-badge">Descartado</span>
+            </div>
+          </div>
+        `;
+      }
+    }).join('');
+
+    document.getElementById('expected-expenses-section').innerHTML = `
+      <section class="expected-expenses-section">
+        <div class="section-header">
+          <div class="header-left">
+            <span class="icon material-symbols-outlined">assignment_turned_in</span>
+            <div class="header-text">
+              <h2 class="section-title">Gastos esperados (del Q anterior)</h2>
+              <p class="section-subtitle">En el trimestre anterior subiste estos gastos recurrentes. ¿Los tienes para este trimestre?</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="expected-list">
+          ${itemsHTML}
+        </div>
+
+        <button class="add-recurring-btn">
+          <span class="icon material-symbols-outlined">add_circle</span>
+          <span>Añadir otro gasto recurrente</span>
+        </button>
+      </section>
+    `;
+
+    attachExpectedExpensesListeners();
+  }
+
+  function attachExpectedExpensesListeners() {
+    document.querySelectorAll('.expected-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', async (e) => {
+        const expectedId = checkbox.dataset.expectedId;
+        const isChecked = checkbox.checked;
+
+        const newStatus = isChecked ? 'fulfilled' : 'dismissed';
+
+        const { error } = await supabase
+          .from('expected_documents')
+          .update({ status: newStatus })
+          .eq('id', expectedId);
+
+        if (error) {
+          console.error('Error updating expected document:', error);
+          checkbox.checked = !isChecked;
+          alert('Error al actualizar gasto esperado');
+        } else {
+          const item = checkbox.closest('.expected-item');
+          const conceptLabel = checkbox.parentElement.querySelector('.item-label').textContent;
+
+          if (newStatus === 'fulfilled') {
+            item.className = 'expected-item status-fulfilled';
+            item.innerHTML = `
+              <div class="fulfilled-item">
+                <span class="icon material-symbols-outlined">check_circle</span>
+                <span class="item-label strikethrough">${conceptLabel}</span>
+                <span class="fulfilled-badge">Ya subido</span>
+              </div>
+            `;
+          } else {
+            item.className = 'expected-item status-dismissed';
+            item.innerHTML = `
+              <div class="dismissed-item">
+                <span class="icon material-symbols-outlined">cancel</span>
+                <span class="item-label strikethrough">${conceptLabel}</span>
+                <span class="dismissed-badge">Descartado</span>
+              </div>
+            `;
+          }
+        }
+      });
+    });
+
+    document.querySelector('.add-recurring-btn')?.addEventListener('click', () => {
+      alert('Funcionalidad de añadir gastos recurrentes próximamente');
+    });
+  }
+
+  function renderChecklistSections(groupedData) {
+    const sectionLabels = {
+      ingresos: 'INGRESOS',
+      gastos: 'GASTOS',
+      banco: 'BANCO',
+      otros: 'OTROS'
+    };
+
+    const sectionsHTML = groupedData.map((section, index) => {
+      const isExpanded = index === 0;
+      const completedCount = section.completedCount;
+      const totalCount = section.totalCount;
+      const progress = section.progress;
+
+      const itemsHTML = section.items.map(item => renderChecklistItem(item, section.name)).join('');
+
+      return `
+        <div class="checklist-section ${isExpanded ? 'expanded' : 'collapsed'}" data-section="${section.name}">
+          <button class="section-header" data-toggle-section aria-expanded="${isExpanded}">
+            <div class="header-left">
+              <span class="expand-icon material-symbols-outlined">expand_more</span>
+              <h3 class="section-name">${sectionLabels[section.name]}</h3>
+              <span class="completion-badge">${completedCount}/${totalCount} completados</span>
+            </div>
+            ${!isExpanded && totalCount > 0 ? `
+              <div class="progress-mini">
+                <div class="progress-bar" style="width: ${progress}%"></div>
+              </div>
+            ` : ''}
+          </button>
+
+          ${isExpanded ? `
+            <div class="section-content">
+              ${section.items.length > 0 ? itemsHTML : `
+                <div class="empty-section">
+                  <span class="material-symbols-outlined">inbox</span>
+                  <p>No hay items en esta sección</p>
+                </div>
+              `}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('sections-list').innerHTML = sectionsHTML;
+    attachChecklistListeners();
+  }
+
+  function renderChecklistItem(item, section) {
+    const statusConfig = {
+      pending: {
+        icon: 'radio_button_unchecked',
+        label: 'Esperando documento',
+        borderColor: '#9B958F',
+        bgColor: '#FFFFFF',
+        iconBgColor: '#F2EFEA'
+      },
+      done: {
+        icon: 'check',
+        label: 'Documento validado',
+        borderColor: '#4A7C59',
+        bgColor: '#F0F7F2',
+        iconBgColor: 'white'
+      },
+      doubtful: {
+        icon: 'priority_high',
+        label: 'Marcado como dudoso',
+        borderColor: '#D4A84B',
+        bgColor: '#FEF9EB',
+        iconBgColor: 'white'
+      }
+    };
+
+    const config = statusConfig[item.status];
+
+    let actionButton = '';
+    if (item.status === 'done') {
+      actionButton = `<button class="btn-action btn-link" data-action="view">Ver archivo</button>`;
+    } else if (item.status === 'doubtful') {
+      actionButton = `<button class="btn-action btn-secondary" data-action="edit">Editar</button>`;
+    } else {
+      actionButton = `
+        <button class="btn-action btn-primary" data-action="upload">
+          <span class="material-symbols-outlined">upload</span>
+          <span>Subir documento</span>
+        </button>
+      `;
+    }
+
+    return `
+      <div class="checklist-item status-${item.status}" data-item-id="${item.id}" data-status="${item.status}" data-section="${section}" role="button" tabindex="0">
+        <div class="item-info">
+          <div class="status-icon icon-${item.status}">
+            <span class="material-symbols-outlined">${config.icon}</span>
+          </div>
+
+          <div class="item-text">
+            <p class="item-label">${item.label}</p>
+            <p class="item-status-text">${config.label}</p>
+            ${item.help_text ? `<p class="item-help">${item.help_text}</p>` : ''}
+          </div>
+        </div>
+
+        <div class="item-actions">
+          ${actionButton}
+        </div>
+      </div>
+    `;
+  }
+
+  function attachChecklistListeners() {
+    // Accordion toggle
+    document.querySelectorAll('[data-toggle-section]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const section = btn.closest('[data-section]');
+        const isExpanded = section.classList.contains('expanded');
+
+        if (isExpanded) {
+          section.classList.remove('expanded');
+          section.classList.add('collapsed');
+          btn.setAttribute('aria-expanded', 'false');
+
+          // Remove section-content
+          const content = section.querySelector('.section-content');
+          if (content) content.remove();
+
+          // Add progress mini
+          const sectionData = section.dataset.section;
+          // Recalculate progress for this section
+          const items = section.querySelectorAll('.checklist-item');
+          const completedCount = Array.from(items).filter(item => item.dataset.status === 'done').length;
+          const totalCount = items.length;
+          const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+          btn.innerHTML = `
+            <div class="header-left">
+              <span class="expand-icon material-symbols-outlined">expand_more</span>
+              <h3 class="section-name">${btn.querySelector('.section-name').textContent}</h3>
+              <span class="completion-badge">${completedCount}/${totalCount} completados</span>
+            </div>
+            ${totalCount > 0 ? `
+              <div class="progress-mini">
+                <div class="progress-bar" style="width: ${progress}%"></div>
+              </div>
+            ` : ''}
+          `;
+        } else {
+          section.classList.remove('collapsed');
+          section.classList.add('expanded');
+          btn.setAttribute('aria-expanded', 'true');
+
+          // Remove progress mini
+          const progressMini = btn.querySelector('.progress-mini');
+          if (progressMini) progressMini.remove();
+
+          // Re-render section content
+          // (In production, store section data and re-render)
+          window.location.reload(); // Simplified for now
+        }
+      });
+    });
+
+    // Checklist item interactions
+    document.querySelectorAll('.checklist-item').forEach(item => {
+      item.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-action]')) return;
+
+        const itemId = item.dataset.itemId;
+        const currentStatus = item.dataset.status;
+        const section = item.dataset.section;
+
+        const stateFlow = {
+          'pending': 'done',
+          'done': 'doubtful',
+          'doubtful': 'pending'
+        };
+
+        const nextStatus = stateFlow[currentStatus];
+
+        item.style.opacity = '0.6';
+
+        const { error } = await supabase
+          .from('checklist_items')
+          .update({ status: nextStatus })
+          .eq('id', itemId);
+
+        item.style.opacity = '1';
+
+        if (error) {
+          alert('Error al actualizar estado. Intenta de nuevo.');
+        } else {
+          item.dataset.status = nextStatus;
+          item.className = `checklist-item status-${nextStatus}`;
+
+          // Re-render item
+          const itemData = { id: itemId, label: item.querySelector('.item-label').textContent, help_text: item.querySelector('.item-help')?.textContent, status: nextStatus };
+          item.outerHTML = renderChecklistItem(itemData, section);
+
+          // Re-attach listeners
+          attachChecklistListeners();
+        }
+      });
+    });
+  }
+
+  function renderInfoBox() {
+    document.getElementById('info-box').style.display = 'block';
+    document.getElementById('info-box').innerHTML = `
+      <div class="info-box">
+        <span class="material-symbols-outlined">info</span>
+        <p>No has subido documentos en la sección 'Otros'. Si no tienes gastos extraordinarios, esto es correcto y puedes continuar.</p>
+      </div>
+    `;
+  }
+
+  function renderDocumentList(documents, trimestreId) {
+    if (!documents || documents.length === 0) {
+      document.getElementById('document-list').innerHTML = '';
+      return;
+    }
+
+    const groupedDocs = {
+      ingresos: documents.filter(d => d.section === 'ingresos'),
+      gastos: documents.filter(d => d.section === 'gastos'),
+      banco: documents.filter(d => d.section === 'banco'),
+      otros: documents.filter(d => d.section === 'otros')
+    };
+
+    const sectionLabels = {
+      ingresos: 'INGRESOS',
+      gastos: 'GASTOS',
+      banco: 'BANCO',
+      otros: 'OTROS'
+    };
+
+    function getFileIcon(mimeType) {
+      if (mimeType.includes('pdf')) return 'picture_as_pdf';
+      if (mimeType.includes('image')) return 'image';
+      if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return 'table_chart';
+      return 'description';
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function formatRelativeTime(timestamp) {
+      const now = new Date();
+      const uploaded = new Date(timestamp);
+      const diffMs = now.getTime() - uploaded.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Justo ahora';
+      if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
+      if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+      if (diffDays === 1) return 'Ayer';
+      if (diffDays < 7) return `Hace ${diffDays} días`;
+      return uploaded.toLocaleDateString('es-ES');
+    }
+
+    const sectionsHTML = Object.entries(groupedDocs).map(([section, docs]) => {
+      if (docs.length === 0) return '';
+
+      const docsHTML = docs.map(doc => `
+        <div class="doc-card" data-doc-id="${doc.id}">
+          <div class="doc-icon">
+            <span class="material-symbols-outlined">${getFileIcon(doc.mime_type)}</span>
+          </div>
+
+          <div class="doc-info">
+            <p class="doc-name">${doc.original_name}</p>
+            <p class="doc-meta">${formatFileSize(doc.file_size)} • ${formatRelativeTime(doc.created_at)}</p>
+
+            ${doc.is_recurring ? `
+              <div class="doc-tags">
+                <span class="badge badge-info">Recurrente</span>
+                ${doc.concept_label ? `<p class="concept-label">${doc.concept_label}</p>` : ''}
+              </div>
+            ` : ''}
+          </div>
+
+          <button class="delete-btn" data-delete="${doc.id}" title="Eliminar documento">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+        </div>
+      `).join('');
+
+      return `
+        <div class="section-group" data-section="${section}">
+          <h4 class="section-label">${sectionLabels[section]} (${docs.length})</h4>
+          <div class="docs-grid">
+            ${docsHTML}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('document-list').innerHTML = `
+      <div class="document-list-container">
+        <h3 class="list-title">Documentos (${documents.length})</h3>
+        ${sectionsHTML || `
+          <div class="empty-state">
+            <span class="material-symbols-outlined">folder_open</span>
+            <p>No hay documentos aún</p>
+          </div>
+        `}
+      </div>
+    `;
+
+    attachDocumentListListeners();
+  }
+
+  function attachDocumentListListeners() {
+    document.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+
+        const docId = btn.dataset.delete;
+        const confirmed = confirm('¿Eliminar este documento?');
+
+        if (!confirmed) return;
+
+        btn.disabled = true;
+
+        try {
+          const { data: doc, error: fetchError } = await supabase
+            .from('documents')
+            .select('file_path')
+            .eq('id', docId)
+            .single();
+
+          if (fetchError) throw fetchError;
+
+          if (doc.file_path) {
+            const { error: storageError } = await supabase.storage
+              .from('documents')
+              .remove([doc.file_path]);
+
+            if (storageError) {
+              console.error('Storage deletion error:', storageError);
+            }
+          }
+
+          const { error: dbError } = await supabase
+            .from('documents')
+            .delete()
+            .eq('id', docId);
+
+          if (dbError) throw dbError;
+
+          const docCard = btn.closest('[data-doc-id]');
+          docCard.style.opacity = '0';
+          docCard.style.transform = 'translateX(10px)';
+
+          setTimeout(() => {
+            docCard.remove();
+          }, 200);
+        } catch (error) {
+          console.error('Error deleting document:', error);
+          alert('Error al eliminar documento. Intenta de nuevo.');
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  function renderNotesSection(notes, trimestreId) {
+    const latestNote = notes && notes.length > 0 ? notes[0] : null;
+
+    document.getElementById('notes-section').innerHTML = `
+      <section class="notes-section">
+        <label for="notes-textarea-${trimestreId}" class="notes-label">
+          Notas del trimestre
+        </label>
+
+        <textarea
+          id="notes-textarea-${trimestreId}"
+          class="notes-textarea"
+          placeholder="Escribe aquí cualquier duda o comentario sobre este trimestre..."
+          rows="4"
+          data-trimestre-id="${trimestreId}"
+        >${latestNote?.content || ''}</textarea>
+
+        <div class="checkbox-wrapper">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              id="for-advisor-${trimestreId}"
+              class="advisor-checkbox"
+              ${latestNote?.for_advisor ? 'checked' : ''}
+              data-trimestre-id="${trimestreId}"
+            />
+            <span>Marcar como mensaje importante para mi asesor</span>
+          </label>
+        </div>
+      </section>
+    `;
+
+    attachNotesListeners(trimestreId);
+  }
+
+  function attachNotesListeners(trimestreId) {
+    const textarea = document.querySelector(`#notes-textarea-${trimestreId}`);
+    const checkbox = document.querySelector(`#for-advisor-${trimestreId}`);
+
+    if (!textarea) return;
+
+    let saveTimeout;
+    let lastSavedContent = textarea.value;
+    let lastSavedForAdvisor = checkbox?.checked || false;
+
+    textarea.addEventListener('input', () => {
+      clearTimeout(saveTimeout);
+
+      saveTimeout = setTimeout(async () => {
+        const content = textarea.value;
+        const forAdvisor = checkbox?.checked || false;
+
+        if (content !== lastSavedContent || forAdvisor !== lastSavedForAdvisor) {
+          if (content.trim()) {
+            try {
+              const { error } = await supabase
+                .from('notes')
+                .upsert({
+                  trimestre_id: trimestreId,
+                  content: content,
+                  for_advisor: forAdvisor
+                }, { onConflict: 'trimestre_id' });
+
+              if (error) {
+                console.error('Error saving note:', error);
+              } else {
+                lastSavedContent = content;
+                lastSavedForAdvisor = forAdvisor;
+                textarea.classList.add('saved');
+                setTimeout(() => {
+                  textarea.classList.remove('saved');
+                }, 1500);
+              }
+            } catch (error) {
+              console.error('Unexpected error saving note:', error);
+            }
+          } else {
+            lastSavedContent = '';
+          }
+        }
+      }, 1000);
+    });
+
+    checkbox?.addEventListener('change', async () => {
+      const content = textarea.value;
+      const forAdvisor = checkbox.checked;
+
+      if (content.trim()) {
+        try {
+          const { error } = await supabase
+            .from('notes')
+            .upsert({
+              trimestre_id: trimestreId,
+              content: content,
+              for_advisor: forAdvisor
+            }, { onConflict: 'trimestre_id' });
+
+          if (error) {
+            console.error('Error saving note:', error);
+          } else {
+            lastSavedForAdvisor = forAdvisor;
+            checkbox.parentElement.classList.add('saved');
+            setTimeout(() => {
+              checkbox.parentElement.classList.remove('saved');
+            }, 1500);
+          }
+        } catch (error) {
+          console.error('Unexpected error saving note:', error);
+        }
+      }
+    });
+  }
+
+  function renderDownloadPackage(trimestreId, status) {
+    const isReady = status === 'ready' || status === 'sent';
+    if (!isReady) {
+      document.getElementById('download-package').innerHTML = '';
+      return;
+    }
+
+    document.getElementById('download-package').innerHTML = `
+      <div class="download-package-container" data-trimestre-id="${trimestreId}">
+        <h3 class="title">Descargar documentación</h3>
+        <p class="description">
+          Tu trimestre está listo. Descarga el paquete completo para enviar a tu asesor.
+        </p>
+
+        <div class="buttons-grid">
+          <button class="btn-download" data-action="download-zip">
+            <span class="material-symbols-outlined">folder_zip</span>
+            <div class="btn-text">
+              <span class="btn-title">Paquete completo (ZIP)</span>
+              <span class="btn-subtitle">Incluye todos los documentos y resúmenes</span>
+            </div>
+          </button>
+
+          <button class="btn-download secondary" data-action="download-executive">
+            <span class="material-symbols-outlined">picture_as_pdf</span>
+            <div class="btn-text">
+              <span class="btn-title">Resumen Ejecutivo (PDF)</span>
+              <span class="btn-subtitle">1 página con lo esencial</span>
+            </div>
+          </button>
+
+          <button class="btn-download secondary" data-action="download-complete">
+            <span class="material-symbols-outlined">description</span>
+            <div class="btn-text">
+              <span class="btn-title">Resumen Completo (PDF)</span>
+              <span class="btn-subtitle">Detallado con checklist</span>
+            </div>
+          </button>
+
+          <button class="btn-download secondary" data-action="download-certificate">
+            <span class="material-symbols-outlined">workspace_premium</span>
+            <div class="btn-text">
+              <span class="btn-title">Certificado de Cierre (PDF)</span>
+              <span class="btn-subtitle">Elegante y celebratorio</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="text-templates">
+          <h4 class="templates-title">Textos para copiar</h4>
+          <div class="templates-grid">
+            <button class="btn-copy" data-copy="email">
+              <span class="material-symbols-outlined">email</span>
+              <span>Copiar email</span>
+            </button>
+            <button class="btn-copy" data-copy="whatsapp">
+              <span class="material-symbols-outlined">chat</span>
+              <span>Copiar WhatsApp</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="loading-overlay" style="display: none;">
+          <div class="spinner"></div>
+          <p>Generando documentos...</p>
+        </div>
+      </div>
+    `;
+
+    // Note: Download functionality requires generator libraries
+    // This is placeholder for now
+    document.querySelector('[data-action="download-zip"]')?.addEventListener('click', () => {
+      alert('Funcionalidad de descarga ZIP próximamente');
+    });
+  }
+
+  function renderStickyCTA(trimestreId) {
+    document.getElementById('sticky-cta').innerHTML = `
+      <button class="btn-submit" data-trimestre-id="${trimestreId}">
+        <span>Marcar trimestre como listo para enviar</span>
+        <span class="material-symbols-outlined">send</span>
+      </button>
+    `;
+
+    document.querySelector('.btn-submit')?.addEventListener('click', async () => {
+      const confirmed = confirm('¿Marcar este trimestre como listo para enviar? Una vez enviado, ya no podrás editarlo.');
+
+      if (!confirmed) return;
+
+      const submitBtn = document.querySelector('.btn-submit');
+      submitBtn.disabled = true;
+      const originalContent = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<span>Procesando...</span>';
+
+      const { error } = await supabase
+        .from('trimestres')
+        .update({ status: 'ready', closed_at: new Date().toISOString() })
+        .eq('id', trimestreId);
+
+      if (error) {
+        console.error('Error closing trimestre:', error);
+        alert('Error al cerrar el trimestre. Inténtalo de nuevo.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalContent;
+      } else {
+        const closureMsg = getClosureMessage(window.__TRIMESTRE_DATA__.quarter, window.__TRIMESTRE_DATA__.year);
+        alert(`${closureMsg.title}\n\n${closureMsg.message}`);
+        window.location.href = `${baseUrl}resumen?id=${trimestreId}`;
+      }
+    });
+  }
+
+  function renderTipBox(normalizationMsg) {
+    document.getElementById('tip-box').innerHTML = `
+      <div class="tip-box">
+        <div class="tip-icon-wrapper">
+          <span class="material-symbols-outlined">${normalizationMsg.icon}</span>
+        </div>
+        <div class="tip-content">
+          <p>
+            <span class="tip-title">${normalizationMsg.title}</span>
+            ${normalizationMsg.message}
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderUploadZone(trimestreId) {
+    document.getElementById('upload-zone').innerHTML = `
+      <div class="upload-zone-container">
+        <h3 class="upload-title">Subida rápida</h3>
+
+        <div class="dropzone" data-trimestre-id="${trimestreId}" data-section="otros">
+          <input type="file" id="file-input-${trimestreId}" multiple hidden />
+          <input type="file" id="camera-input-${trimestreId}" accept="image/*" capture="environment" hidden />
+
+          <label for="file-input-${trimestreId}" class="drop-label">
+            <span class="upload-icon material-symbols-outlined">cloud_upload</span>
+            <p class="primary-text">Arrastra archivos aquí</p>
+            <p class="secondary-text">o haz clic para buscar</p>
+          </label>
+
+          <button class="camera-btn" type="button" data-camera-btn="${trimestreId}">
+            <span class="material-symbols-outlined">photo_camera</span>
+            <span>Usar cámara</span>
+          </button>
+        </div>
+
+        <div class="preview-zone" style="display: none;" data-preview-zone="${trimestreId}">
+          <h4 class="preview-title">Archivos seleccionados:</h4>
+          <ul class="file-list" id="file-preview-list-${trimestreId}"></ul>
+        </div>
+
+        <div class="recurring-controls" style="display: none;" data-recurring-controls="${trimestreId}">
+          <label class="checkbox-label">
+            <input type="checkbox" id="is-recurring-${trimestreId}" class="recurring-checkbox" data-recurring-check="${trimestreId}" />
+            <span>Marcar como recurrente</span>
+          </label>
+
+          <div class="concept-input-wrapper" style="display: none;" data-concept-wrapper="${trimestreId}">
+            <label for="concept-label-${trimestreId}">Nombre del concepto:</label>
+            <input type="text" id="concept-label-${trimestreId}" class="concept-input" data-concept-input="${trimestreId}" placeholder="Ej: Alquiler oficina, Seguro empresa..." />
+          </div>
+        </div>
+
+        <div class="upload-progress" style="display: none;" data-progress-zone="${trimestreId}">
+          <div class="progress-fill"></div>
+          <p class="progress-text">Subiendo...</p>
+        </div>
+
+        <button class="btn-upload" type="button" disabled data-upload-btn="${trimestreId}">
+          <span>Subir documentos</span>
+          <span class="material-symbols-outlined">upload</span>
+        </button>
+      </div>
+    `;
+
+    // Note: Upload functionality requires full implementation
+    // Placeholder for now
+    document.getElementById(`file-input-${trimestreId}`)?.addEventListener('change', () => {
+      alert('Funcionalidad de subida de archivos próximamente');
+    });
+  }
+
+  function renderRecentDocuments(documents, trimestreId) {
+    function getFileIcon(mimeType) {
+      if (mimeType.includes('pdf')) return 'picture_as_pdf';
+      if (mimeType.includes('image')) return 'image';
+      if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return 'table_chart';
+      return 'description';
+    }
+
+    function getFileIconClass(mimeType) {
+      if (mimeType.includes('pdf')) return 'icon-red';
+      if (mimeType.includes('image')) return 'icon-blue';
+      return 'icon-gray';
+    }
+
+    function formatRelativeTime(timestamp) {
+      const now = new Date();
+      const uploaded = new Date(timestamp);
+      const diffMs = now.getTime() - uploaded.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Justo ahora';
+      if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
+      if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+      if (diffDays === 1) return 'Ayer';
+      if (diffDays < 7) return `Hace ${diffDays} días`;
+      return uploaded.toLocaleDateString('es-ES');
+    }
+
+    const docsHTML = documents.length > 0 ? documents.map(doc => `
+      <div class="doc-item" data-doc-id="${doc.id}">
+        <div class="file-icon ${getFileIconClass(doc.mime_type)}">
+          <span class="material-symbols-outlined">${getFileIcon(doc.mime_type)}</span>
+        </div>
+
+        <div class="doc-info">
+          <p class="file-name">${doc.file_name}</p>
+          <p class="upload-time">${formatRelativeTime(doc.uploaded_at)}</p>
+        </div>
+
+        <button class="delete-btn" data-delete="${doc.id}" title="Eliminar documento">
+          <span class="material-symbols-outlined">delete</span>
+        </button>
+      </div>
+    `).join('') : `
+      <div class="empty-docs">
+        <span class="material-symbols-outlined">folder_open</span>
+        <p>No hay documentos aún</p>
+      </div>
+    `;
+
+    document.getElementById('recent-documents').innerHTML = `
+      <div class="recent-docs-container">
+        <div class="docs-header">
+          <h3 class="docs-title">Documentos recientes</h3>
+          ${documents.length > 3 ? '<button class="link-btn">Ver todos</button>' : ''}
+        </div>
+
+        <div class="docs-list">
+          ${docsHTML}
+        </div>
+      </div>
+    `;
+  }
+
+  loadTrimestre();
+</script>
+
+<style>
+  /* Mismo CSS que el archivo original */
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: var(--spacing-md);
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(184, 137, 125, 0.2);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-container p {
+    color: var(--text-secondary);
+    font-size: var(--font-size-base);
+  }
+
+  .trimestre-page {
+    width: 100%;
+    background: var(--bg-page);
+  }
+
+  .grid-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    .grid-layout {
+      grid-template-columns: 2fr 1fr;
+    }
+  }
+
+  .main-column {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .sidebar-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Header Card */
+  .header-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 2rem;
+    border: 1px solid white;
+  }
+
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+  }
+
+  .header-text {
+    flex: 1;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .btn-resumen {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all var(--transition-base);
+    box-shadow: 0 4px 12px rgba(184, 137, 125, 0.15);
+  }
+
+  .btn-resumen:hover {
+    background: var(--color-primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(184, 137, 125, 0.25);
+  }
+
+  .btn-resumen .material-symbols-outlined {
+    font-size: 1.25rem;
+  }
+
+  .period-label {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .period-title {
+    font-family: var(--font-serif);
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1;
+    margin: 0;
+  }
+
+  .progress-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .progress-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .progress-percentage {
+    font-size: var(--font-size-sm);
+    color: var(--text-main);
+    font-weight: 600;
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-page);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--color-primary);
+    transition: width var(--transition-base);
+    border-radius: var(--radius-full);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-primary {
+    background: rgba(184, 137, 125, 0.1);
+    color: var(--color-primary);
+  }
+
+  .badge-success {
+    background: rgba(74, 124, 89, 0.1);
+    color: var(--color-success);
+  }
+
+  .badge-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+  }
+
+  /* Expected Expenses Section */
+  .expected-expenses-section {
+    background: #F5E6D3;
+    border: 1px solid #EAD8C5;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 2rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1;
+  }
+
+  .section-header .icon {
+    color: rgba(140, 107, 93, 0.6);
+    background: rgba(255, 255, 255, 0.4);
+    padding: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .section-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.25rem 0;
+  }
+
+  .section-subtitle {
+    color: rgba(140, 107, 93, 1);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    margin: 0;
+  }
+
+  .expected-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-left: 0;
+  }
+
+  .expected-item {
+    padding: 0.75rem;
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid transparent;
+    transition: all var(--transition-base);
+  }
+
+  .expected-item:hover {
+    background: rgba(255, 255, 255, 0.6);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  .checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+  }
+
+  .expected-checkbox {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid #C4B4A6;
+    border-radius: 0.375rem;
+    background: #FDFBF9;
+    cursor: pointer;
+    accent-color: var(--color-primary);
+  }
+
+  .item-label {
+    font-weight: 500;
+    color: var(--text-main);
+    user-select: none;
+  }
+
+  .item-label.strikethrough {
+    opacity: 0.6;
+    text-decoration: line-through;
+  }
+
+  .fulfilled-item,
+  .dismissed-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .fulfilled-item .icon {
+    color: var(--color-success);
+    flex-shrink: 0;
+  }
+
+  .dismissed-item .icon {
+    color: #999;
+    flex-shrink: 0;
+  }
+
+  .fulfilled-badge,
+  .dismissed-badge {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.6);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .fulfilled-badge {
+    color: var(--color-success);
+  }
+
+  .dismissed-badge {
+    color: #999;
+  }
+
+  .add-recurring-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    padding: 0.5rem 0;
+    margin-top: 0.5rem;
+    transition: all var(--transition-base);
+  }
+
+  .add-recurring-btn:hover {
+    color: var(--color-primary-hover);
+    gap: 0.75rem;
+  }
+
+  /* Checklist Sections */
+  .sections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .checklist-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid white;
+    overflow: hidden;
+    transition: all var(--transition-base);
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 1.25rem;
+    background: var(--bg-card);
+    border: none;
+    border-bottom: 1px solid var(--border-soft);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-align: left;
+  }
+
+  .expanded .section-header {
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .collapsed .section-header {
+    border-bottom: none;
+  }
+
+  .section-header:hover {
+    background: var(--bg-page);
+  }
+
+  .expand-icon {
+    color: var(--text-secondary);
+    transition: transform var(--transition-base);
+    font-size: 1.5rem;
+  }
+
+  .expanded .expand-icon {
+    transform: rotate(0deg);
+  }
+
+  .collapsed .expand-icon {
+    transform: rotate(-90deg);
+  }
+
+  .section-name {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .completion-badge {
+    background: #F2EFEA;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    margin-left: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .progress-mini {
+    width: 6rem;
+    height: 0.375rem;
+    background: #EAE4DF;
+    border-radius: 9999px;
+    overflow: hidden;
+    margin-left: auto;
+  }
+
+  .section-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    overflow: visible;
+  }
+
+  .empty-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .empty-section span {
+    font-size: 3rem;
+    opacity: 0.5;
+    margin-bottom: 1rem;
+  }
+
+  /* Checklist Item */
+  .checklist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem;
+    border-left: 6px solid;
+    border-bottom: 1px solid white;
+    gap: 1rem;
+    transition: all var(--transition-base);
+    cursor: pointer;
+  }
+
+  .checklist-item:last-child {
+    border-bottom: none;
+  }
+
+  .checklist-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .status-pending {
+    border-left-color: #9B958F;
+    background: white;
+  }
+
+  .status-pending:hover {
+    background: #F9F8F7;
+  }
+
+  .status-done {
+    border-left-color: #4A7C59;
+    background: #F0F7F2;
+  }
+
+  .status-done:hover {
+    background: #E8F2EB;
+  }
+
+  .status-doubtful {
+    border-left-color: #D4A84B;
+    background: #FEF9EB;
+  }
+
+  .status-doubtful:hover {
+    background: #FDF6E0;
+  }
+
+  .item-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .status-icon {
+    padding: 0.375rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .status-pending .status-icon {
+    background: #F2EFEA;
+    color: #9B958F;
+  }
+
+  .status-done .status-icon {
+    background: white;
+    color: #4A7C59;
+  }
+
+  .status-doubtful .status-icon {
+    background: white;
+    color: #D4A84B;
+  }
+
+  .item-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .item-status-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .status-pending .item-status-text {
+    color: var(--text-secondary);
+  }
+
+  .status-done .item-status-text {
+    color: #4A7C59;
+  }
+
+  .status-doubtful .item-status-text {
+    color: #D4A84B;
+  }
+
+  .item-help {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 0.25rem 0 0 0;
+    font-style: italic;
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .btn-action {
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+  }
+
+  .btn-link {
+    background: none;
+    color: var(--text-secondary);
+    text-decoration: underline;
+  }
+
+  .btn-secondary {
+    background: white;
+    color: var(--text-main);
+    border: 1px solid #EAD8C5;
+  }
+
+  .btn-primary {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  /* Info Box */
+  .info-box {
+    background: var(--bg-page);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-xl);
+    padding: 1.25rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Document List */
+  .document-list-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 2rem;
+    border: 1px solid white;
+  }
+
+  .list-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 1.5rem 0;
+  }
+
+  .section-group {
+    margin-bottom: 2rem;
+  }
+
+  .section-label {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 1rem 0;
+  }
+
+  .docs-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .doc-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-soft);
+    background: var(--bg-page);
+    transition: all var(--transition-base);
+  }
+
+  .doc-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .doc-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--radius-md);
+    background: rgba(184, 137, 125, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .doc-name {
+    font-weight: 600;
+    color: var(--text-main);
+    font-size: var(--font-size-base);
+    margin: 0 0 0.25rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .doc-meta {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    opacity: 0;
+    transition: all var(--transition-base);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .doc-card:hover .delete-btn {
+    opacity: 1;
+  }
+
+  .delete-btn:hover {
+    background: #FEE2E2;
+    color: #EF4444;
+  }
+
+  /* Notes Section */
+  .notes-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 2rem;
+    border: 1px solid white;
+  }
+
+  .notes-label {
+    display: block;
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 0.75rem;
+  }
+
+  .notes-textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-xl);
+    background: #FAFAFA;
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    color: var(--text-main);
+    resize: vertical;
+    min-height: 7rem;
+    transition: all var(--transition-base);
+  }
+
+  .notes-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(184, 137, 125, 0.1);
+    background: white;
+  }
+
+  .notes-textarea.saved {
+    border-color: var(--color-success);
+    background: rgba(74, 124, 89, 0.05);
+  }
+
+  .checkbox-wrapper {
+    margin-top: 1rem;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-base);
+  }
+
+  .checkbox-label:hover {
+    background: var(--bg-page);
+  }
+
+  .advisor-checkbox {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--border-soft);
+    border-radius: 0.375rem;
+    background: white;
+    cursor: pointer;
+    accent-color: var(--color-primary);
+  }
+
+  /* Sticky CTA */
+  .sticky-cta {
+    position: sticky;
+    bottom: 1.5rem;
+    z-index: 10;
+    padding-top: 1rem;
+  }
+
+  .btn-submit {
+    width: 100%;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    font-size: var(--font-size-lg);
+    padding: 1.25rem 1.5rem;
+    border-radius: var(--radius-xl);
+    border: none;
+    box-shadow: 0 10px 30px -5px rgba(184, 137, 125, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .btn-submit:hover {
+    background: var(--color-primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 15px 40px -5px rgba(184, 137, 125, 0.4);
+  }
+
+  .btn-submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  /* Tip Box */
+  .tip-box {
+    background: var(--bg-card);
+    border-left: 4px solid var(--color-primary);
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+    box-shadow: var(--shadow-soft);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid white;
+    border-left: 4px solid var(--color-primary);
+  }
+
+  .tip-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--color-primary);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  /* Upload Zone */
+  .upload-zone-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 1.5rem;
+    border: 1px solid white;
+  }
+
+  .upload-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 1rem 0;
+  }
+
+  .dropzone {
+    border: 2px dashed rgba(184, 137, 125, 0.3);
+    background: rgba(184, 137, 125, 0.05);
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    position: relative;
+  }
+
+  .dropzone:hover {
+    background: rgba(184, 137, 125, 0.1);
+    border-color: var(--color-primary);
+  }
+
+  .drop-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+  }
+
+  .upload-icon {
+    font-size: 2.5rem;
+    color: var(--color-primary);
+  }
+
+  .primary-text {
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .secondary-text {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .camera-btn {
+    display: none;
+  }
+
+  .btn-upload {
+    width: 100%;
+    margin-top: 1.5rem;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    font-size: var(--font-size-base);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+
+  .btn-upload:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Recent Documents */
+  .recent-docs-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 1.5rem;
+    border: 1px solid white;
+  }
+
+  .docs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .docs-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .docs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .doc-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid transparent;
+    transition: all var(--transition-base);
+  }
+
+  .doc-item:hover {
+    background: var(--bg-page);
+    border-color: var(--border-soft);
+  }
+
+  .file-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.25rem;
+  }
+
+  .icon-red {
+    background: #FEE2E2;
+    color: #EF4444;
+  }
+
+  .icon-blue {
+    background: #DBEAFE;
+    color: #3B82F6;
+  }
+
+  .icon-gray {
+    background: #F3F4F6;
+    color: #9CA3AF;
+  }
+
+  .file-name {
+    font-weight: 500;
+    color: var(--text-main);
+    font-size: var(--font-size-sm);
+    margin: 0 0 0.25rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .upload-time {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .empty-docs {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  /* Download Package */
+  .download-package-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    padding: 2rem;
+    border: 1px solid white;
+    position: relative;
+  }
+
+  .title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .description {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    margin: 0 0 1.5rem 0;
+  }
+
+  .buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .btn-download {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-align: left;
+  }
+
+  .btn-download.secondary {
+    background: var(--bg-page);
+    color: var(--text-main);
+    border: 1px solid var(--border-soft);
+  }
+
+  .btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .btn-title {
+    font-weight: 600;
+    font-size: var(--font-size-base);
+  }
+
+  .btn-subtitle {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+  }
+
+  .text-templates {
+    border-top: 1px solid var(--border-soft);
+    padding-top: 1.5rem;
+  }
+
+  .templates-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 1rem 0;
+  }
+
+  .templates-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .btn-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-page);
+    color: var(--text-main);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    font-size: var(--font-size-sm);
+  }
+
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: var(--radius-xl);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    z-index: 100;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .sidebar-column {
+      order: -1;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .grid-layout {
+      padding: 1.5rem 1rem;
+      gap: 1.5rem;
+    }
+
+    .period-title {
+      font-size: 2.5rem;
+    }
+
+    .header-card {
+      padding: 1.5rem;
+    }
+
+    .sticky-cta {
+      bottom: 1rem;
+    }
+
+    .buttons-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .templates-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

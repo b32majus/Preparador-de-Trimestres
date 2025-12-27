@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sophilux - Acceder</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#b88a7f",
+              "background-light": "#FAF8F5",
+              "background-dark": "#1c1716",
+              "stone-text": "#171312",
+              "muted-text": "#7f6b66",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"]
+            },
+            borderRadius: {
+                "DEFAULT": "0.375rem", 
+                "lg": "0.5rem", 
+                "xl": "0.75rem", 
+                "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased min-h-screen relative overflow-hidden flex flex-col items-center justify-center text-stone-text transition-colors duration-300">
+<div aria-hidden="true" class="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+<div aria-hidden="true" class="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-primary/10 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+<main class="w-full max-w-[400px] px-6 py-10 relative z-10 flex flex-col gap-8">
+<div class="flex flex-col items-center gap-2">
+<div class="size-10 text-stone-text flex items-center justify-center bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-stone-200 dark:border-zinc-700 p-2">
+<svg class="w-full h-full text-primary" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z" fill="currentColor"></path>
+</svg>
+</div>
+<h1 class="text-stone-text dark:text-white text-xl font-bold tracking-tight">Sophilux</h1>
+</div>
+<div class="flex flex-col gap-6">
+<div class="text-center space-y-2">
+<h2 class="text-[28px] font-bold leading-tight text-stone-text dark:text-white tracking-tight">Acceder</h2>
+<p class="text-muted-text text-sm font-normal">Introduce tu email para gestionar tus trimestres.</p>
+</div>
+<form class="flex flex-col gap-4" onsubmit="event.preventDefault();">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-medium text-stone-text dark:text-stone-200" for="email">
+                        Email
+                    </label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-text">
+<span class="material-symbols-outlined text-[20px]">mail</span>
+</div>
+<input class="block w-full rounded-lg border-stone-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 py-3 pl-10 pr-4 text-stone-text dark:text-white placeholder:text-muted-text/70 focus:border-primary focus:ring-primary shadow-sm sm:text-sm transition-all duration-200 ease-in-out h-12" id="email" name="email" placeholder="ejemplo@sophilux.com" required="" type="email"/>
+</div>
+</div>
+<button class="flex w-full items-center justify-center rounded-lg bg-primary px-4 h-12 text-sm font-bold text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors duration-200 mt-2" type="submit">
+                    Enviarme enlace
+                </button>
+</form>
+<div class="flex items-center justify-center gap-2 pt-2">
+<span class="material-symbols-outlined text-[16px] text-primary">lock</span>
+<p class="text-muted-text text-xs font-medium text-center">Sin contraseñas. Sin spam.</p>
+</div>
+</div>
+</main>
+<footer class="absolute bottom-8 w-full text-center">
+<p class="text-sm font-display text-[#6B635D]">Sophilux © 2026</p>
+</footer>
+
+</body></html>
