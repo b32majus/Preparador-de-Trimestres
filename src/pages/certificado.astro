@@ -72,11 +72,17 @@ const trimestreId = Astro.url.searchParams.get('id');
   </div>
 </App>
 
-<script define:vars={{ baseUrl, trimestreId }}>
+<div id="certificado-config" data-base-url={baseUrl} data-trimestre-id={trimestreId}></div>
+
+<script>
   import { supabase } from '../lib/supabase.js';
   import { getDocuments, getChecklistItems, getExpectedDocuments } from '../lib/supabase.js';
   import { generateCertificado } from '../lib/generators/certificado.js';
   import { saveAs } from 'file-saver';
+
+  const configElement = document.getElementById('certificado-config');
+  const baseUrl = configElement.dataset.baseUrl;
+  const trimestreId = configElement.dataset.trimestreId;
 
   async function loadCertificado() {
     // 1. Validate trimestreId

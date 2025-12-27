@@ -94,7 +94,9 @@ const trimestreId = Astro.url.searchParams.get('id');
   </div>
 </App>
 
-<script define:vars={{ baseUrl, trimestreId }}>
+<div id="resumen-config" data-base-url={baseUrl} data-trimestre-id={trimestreId}></div>
+
+<script>
   import { supabase } from '../lib/supabase.js';
   import { getDocuments, getChecklistItems, getNotes } from '../lib/supabase.js';
   import { generateResumenEjecutivo } from '../lib/generators/resumenEjecutivo.js';
@@ -102,6 +104,10 @@ const trimestreId = Astro.url.searchParams.get('id');
   import { generateAndDownloadZip } from '../lib/generators/zipPackage.js';
   import { generateEmailText, generateWhatsAppText } from '../lib/generators/textTemplates.js';
   import { saveAs } from 'file-saver';
+
+  const configElement = document.getElementById('resumen-config');
+  const baseUrl = configElement.dataset.baseUrl;
+  const trimestreId = configElement.dataset.trimestreId;
 
   async function loadResumen() {
     // 1. Validate trimestreId

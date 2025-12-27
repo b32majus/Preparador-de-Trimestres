@@ -56,12 +56,17 @@ const trimestreId = Astro.url.searchParams.get('id');
   </div>
 </App>
 
-<script define:vars={{ baseUrl, trimestreId }}>
+<div id="trimestre-config" data-base-url={baseUrl} data-trimestre-id={trimestreId}></div>
+
+<script>
   import { supabase } from '../lib/supabase.js';
   import { getQuarterDateRange } from '../lib/date-utils.js';
   import { getRandomNormalizationMessage } from '../lib/normalizationMessages.js';
   import { getClosureMessage } from '../lib/microcopy.js';
-  import { closeTrimestre } from '../lib/supabase.js';
+
+  const configElement = document.getElementById('trimestre-config');
+  const baseUrl = configElement.dataset.baseUrl;
+  const trimestreId = configElement.dataset.trimestreId;
 
   async function loadTrimestre() {
     try {

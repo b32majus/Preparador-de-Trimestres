@@ -22,10 +22,15 @@ const baseUrl = import.meta.env.BASE_URL;
   </div>
 </App>
 
-<script define:vars={{ baseUrl }}>
+<div id="dashboard-config" data-base-url={baseUrl}></div>
+
+<script>
   import { supabase } from '../lib/supabase.js';
   import { getCurrentYearQuarter, getCurrentDayOfMonth, getQuarterDateRange } from '../lib/date-utils.js';
   import { getContextualMessage } from '../lib/microcopy.js';
+
+  const configElement = document.getElementById('dashboard-config');
+  const baseUrl = configElement.dataset.baseUrl;
 
   async function loadDashboard() {
     try {
@@ -95,22 +100,26 @@ const baseUrl = import.meta.env.BASE_URL;
     const progress = activeTrimestre?.checklist_progress || 0;
     const message = getContextualMessage(progress, dayOfMonth);
 
-    document.getElementById('contextual-message').innerHTML = `
-      <div class="contextual-message">
-        <span class="icon material-symbols-outlined">${message.icon}</span>
-        <div class="content">
-          <h3 class="title">${message.title}</h3>
-          <p class="message">${message.message}</p>
+    const contextualMessageEl = document.getElementById('contextual-message');
+    if (contextualMessageEl) {
+      contextualMessageEl.innerHTML = `
+        <div class="contextual-message">
+          <span class="icon material-symbols-outlined">${message.icon}</span>
+          <div class="content">
+            <h3 class="title">${message.title}</h3>
+            <p class="message">${message.message}</p>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
 
     // Render active trimestre card
-    if (activeTrimestre) {
+    const activeTrimestreEl = document.getElementById('active-trimestre');
+    if (activeTrimestre && activeTrimestreEl) {
       const quarterLabel = `Q${activeTrimestre.quarter}`;
       const quarterDates = getQuarterDateRange(activeTrimestre.quarter);
 
-      document.getElementById('active-trimestre').innerHTML = `
+      activeTrimestreEl.innerHTML = `
         <div class="trimestre-card active">
           <div class="card-header">
             <span class="badge badge-primary">EN CURSO</span>
@@ -147,7 +156,8 @@ const baseUrl = import.meta.env.BASE_URL;
     }
 
     // Render past trimestres
-    if (pastTrimestres && pastTrimestres.length > 0) {
+    const pastTrimestresEl = document.getElementById('past-trimestres');
+    if (pastTrimestres && pastTrimestres.length > 0 && pastTrimestresEl) {
       const pastHTML = pastTrimestres.map(t => {
         const quarterLabel = `Q${t.quarter}`;
         const quarterDates = getQuarterDateRange(t.quarter);
@@ -170,7 +180,7 @@ const baseUrl = import.meta.env.BASE_URL;
         `;
       }).join('');
 
-      document.getElementById('past-trimestres').innerHTML = `
+      pastTrimestresEl.innerHTML = `
         <section class="past-trimestres">
           <h2 class="past-title">Trimestres anteriores</h2>
           <div class="past-list">
@@ -181,8 +191,10 @@ const baseUrl = import.meta.env.BASE_URL;
     }
 
     // Show content, hide loading
-    document.getElementById('loading-dashboard').style.display = 'none';
-    document.getElementById('dashboard-content').style.display = 'flex';
+    const loadingDashboard = document.getElementById('loading-dashboard');
+    const dashboardContent = document.getElementById('dashboard-content');
+    if (loadingDashboard) loadingDashboard.style.display = 'none';
+    if (dashboardContent) dashboardContent.style.display = 'flex';
   }
 
   loadDashboard();

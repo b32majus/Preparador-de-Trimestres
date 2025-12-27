@@ -50,36 +50,110 @@ const baseUrl = import.meta.env.BASE_URL;
   </body>
 </html>
 
-<script define:vars={{ baseUrl }}>
-  import { supabase } from '../../lib/supabase.js';
+<div id="callback-config" 
+  data-base-url={baseUrl}
+  data-supabase-url={import.meta.env.PUBLIC_SUPABASE_URL}
+  data-supabase-key={import.meta.env.PUBLIC_SUPABASE_ANON_KEY}
+></div>
+
+<script is:inline src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script is:inline>
+  const configElement = document.getElementById('callback-config');
+  const baseUrl = configElement.dataset.baseUrl;
+  const supabaseUrl = configElement.dataset.supabaseUrl;
+  const supabaseKey = configElement.dataset.supabaseKey;
+
+  // Initialize Supabase Client from CDN
+  if (!window.supabase) {
+    console.error('Supabase library not loaded from CDN');
+    window.location.href = `${baseUrl}login?error=${encodeURIComponent('Error cargando librerías. Recarga la página.')}`;
+  }
+  
+  const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
   async function handleCallback() {
-    // Obtener código y redirect de URL
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const redirect = params.get('redirect') || `${baseUrl}dashboard`;
+    // 1. Check for errors in the hash (Supabase default for implicit flow / errors)
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const error = hashParams.get('error');
+    const errorDescription = hashParams.get('error_description');
+
+    if (error) {
+      console.error('Auth error from hash:', error, errorDescription);
+      window.location.href = `${baseUrl}login?error=${encodeURIComponent(errorDescription || error)}`;
+      return;
+    }
+
+    // 2. Check for access_token in hash (Implicit Flow) - detected in user screenshot
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+    const type = hashParams.get('type');
+
+    if (accessToken) {
+      console.log('Implicit flow detected with access_token');
+      
+      // Manually set the session
+      const { error } = await supabaseClient.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
+      });
+
+      if (error) {
+         console.error('Error setting session manually:', error);
+         window.location.href = `${baseUrl}login?error=${encodeURIComponent(error.message)}`;
+         return;
+      }
+
+      // Session set successfully
+      const redirect = new URLSearchParams(window.location.search).get('redirect') || `${baseUrl}dashboard`;
+      window.location.href = redirect;
+      return;
+    }
+    
+    if (type === 'recovery' || type === 'magiclink') {
+       const redirect = new URLSearchParams(window.location.search).get('redirect') || `${baseUrl}dashboard`;
+       // Fallback for types without explicit access token in hash immediately visible
+       supabaseClient.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' || session) {
+            window.location.href = redirect;
+          }
+       });
+       return;
+    }
+
+    // 3. Check for code in query params (PKCE flow)
+    const queryParams = new URLSearchParams(window.location.search);
+    const code = queryParams.get('code');
+    const redirect = queryParams.get('redirect') || `${baseUrl}dashboard`;
 
     if (!code) {
-      // Sin código, redirigir a login con error
-      window.location.href = `${baseUrl}login?error=${encodeURIComponent('Enlace de autenticación inválido')}`;
+      // If no code, no error, and no access_token check if we have an active session anyway
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        window.location.href = redirect;
+        return;
+      }
+
+      // No code, no error, no access_token, no session -> Invalid link
+      window.location.href = `${baseUrl}login?error=${encodeURIComponent('Enlace de autenticación inválido o expirado')}`;
       return;
     }
 
     try {
-      // Exchange code for session (client-side)
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      // 3. Exchange code for session
+      const { error: exchangeError } = await supabaseClient.auth.exchangeCodeForSession(code);
 
-      if (error) {
-        console.error('Auth callback error:', error);
+      if (exchangeError) {
+        console.error('Auth callback error:', exchangeError);
         window.location.href = `${baseUrl}login?error=${encodeURIComponent('Error de autenticación. Inténtalo de nuevo.')}`;
         return;
       }
 
-      // Éxito - redirigir
+      // Success - redirect
       window.location.href = redirect;
 
-    } catch (error) {
-      console.error('Unexpected auth error:', error);
+    } catch (err) {
+      console.error('Unexpected auth error:', err);
       window.location.href = `${baseUrl}login?error=${encodeURIComponent('Error inesperado. Inténtalo de nuevo.')}`;
     }
   }

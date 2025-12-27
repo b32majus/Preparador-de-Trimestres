@@ -57,8 +57,18 @@ const errorMessage = Astro.url.searchParams.get('error');
   </main>
 </Landing>
 
-<script define:vars={{ redirectTo, baseUrl }}>
+<div id="auth-config" data-base-url={baseUrl} data-redirect-to={redirectTo}></div>
+
+<script>
   import { supabase } from '../lib/supabase.js';
+
+  const configElement = document.getElementById('auth-config');
+  const baseUrl = configElement.dataset.baseUrl;
+  const redirectTo = configElement.dataset.redirectTo;
+
+  // Get site URL from environment or fallback to localhost for dev
+  const siteUrl = import.meta.env.PUBLIC_SITE_URL || window.location.origin;
+  const redirectUrl = `${siteUrl}${baseUrl}auth/callback`;
 
   // Check if user is already logged in
   async function checkExistingSession() {
@@ -78,6 +88,14 @@ const errorMessage = Astro.url.searchParams.get('error');
   const successMessage = document.getElementById('success-message');
   const errorMessage = document.getElementById('error-message');
   const errorText = document.getElementById('error-text');
+
+  // Check for error messages in URL on load
+  const urlParams = new URLSearchParams(window.location.search);
+  const errorParam = urlParams.get('error');
+
+  if (errorParam) {
+    showError(decodeURIComponent(errorParam));
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -100,11 +118,15 @@ const errorMessage = Astro.url.searchParams.get('error');
     btnLoading.style.display = 'inline';
 
     try {
-      // Enviar Magic Link
+      // Enviar Magic Link con URL absoluta
+      const emailRedirectTo = `${redirectUrl}?redirect=${encodeURIComponent(redirectTo)}`;
+
+      console.log('Sending magic link with redirect URL:', emailRedirectTo);
+
       const { error } = await supabase.auth.signInWithOtp({
         email: email,
         options: {
-          emailRedirectTo: `${window.location.origin}${baseUrl}auth/callback?redirect=${encodeURIComponent(redirectTo)}`
+          emailRedirectTo: emailRedirectTo
         }
       });
 
@@ -117,7 +139,13 @@ const errorMessage = Astro.url.searchParams.get('error');
       form.style.display = 'none';
 
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Login error details:', {
+        message: error.message,
+        error: error,
+        status: error.status,
+        code: error.code,
+        attemptedRedirectUrl: `${redirectUrl}?redirect=${encodeURIComponent(redirectTo)}`
+      });
       showError(error.message || 'Error al enviar el enlace. Inténtalo de nuevo.');
     } finally {
       // Restaurar estado del botón

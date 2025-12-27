@@ -10,7 +10,13 @@
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nComplete GitHub Pages static deployment setup\n\n- Update Supabase environment variables to use PUBLIC_ prefix for static build compatibility\n- Configure .env and .env.example with PUBLIC_SUPABASE_URL and PUBLIC_SUPABASE_ANON_KEY\n- Add AuthGuard protection to ajustes.astro page\n- Remove incompatible prerender directive from ajustes.astro\n- All pages now fully configured for static deployment with BASE_URL support\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nComplete GitHub Pages static deployment setup\n\n- Update Supabase environment variables to use PUBLIC_ prefix for static build compatibility\n- Configure .env and .env.example with PUBLIC_SUPABASE_URL and PUBLIC_SUPABASE_ANON_KEY\n- Add AuthGuard protection to ajustes.astro page\n- Remove incompatible prerender directive from ajustes.astro\n- All pages now fully configured for static deployment with BASE_URL support\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(gh run list:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd package-lock.json and disable Jekyll processing\n\n- Remove package-lock.json from .gitignore \\(needed for npm ci in GitHub Actions\\)\n- Add package-lock.json for deterministic builds\n- Add .nojekyll to disable GitHub Pages Jekyll processing\n- Fixes \"Dependencies lock file is not found\" error in workflow\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(npm run build:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

@@ -17,8 +17,13 @@ const { redirectTo = `${import.meta.env.BASE_URL}login` } = Astro.props;
   </div>
 </div>
 
-<script define:vars={{ redirectTo }}>
+<div id="auth-guard-config" data-redirect-to={redirectTo}></div>
+
+<script>
   import { supabase } from '../lib/supabase.js';
+
+  const configElement = document.getElementById('auth-guard-config');
+  const redirectTo = configElement.dataset.redirectTo;
 
   async function checkAuth() {
     const { data: { session }, error } = await supabase.auth.getSession();
@@ -34,8 +39,13 @@ const { redirectTo = `${import.meta.env.BASE_URL}login` } = Astro.props;
     }
 
     // Autenticado, mostrar contenido
-    document.getElementById('auth-guard').querySelector('.loading-auth').style.display = 'none';
-    document.getElementById('auth-content').style.display = 'block';
+    const authGuardEl = document.getElementById('auth-guard');
+    if (authGuardEl) {
+      const loadingAuth = authGuardEl.querySelector('.loading-auth');
+      const authContent = document.getElementById('auth-content');
+      if (loadingAuth) loadingAuth.style.display = 'none';
+      if (authContent) authContent.style.display = 'block';
+    }
   }
 
   checkAuth();
