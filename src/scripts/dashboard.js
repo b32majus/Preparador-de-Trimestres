@@ -7,19 +7,25 @@ const baseUrl = configElement.dataset.baseUrl;
 
 async function loadDashboard() {
   try {
+    console.log('[Dashboard] Starting to load dashboard...');
+
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
+    console.log('[Dashboard] User:', user);
 
     if (userError || !user) {
+      console.error('[Dashboard] No user found, redirecting to login');
       window.location.href = `${baseUrl}login`;
       return;
     }
 
     // Get current year/quarter
     const { year: currentYear, quarter: currentQuarter } = getCurrentYearQuarter();
+    console.log('[Dashboard] Current period:', { year: currentYear, quarter: currentQuarter });
 
     // Create or get active trimestre
     let trimestreData;
+    console.log('[Dashboard] Calling create_trimestre_with_checklist RPC...');
     const { data: activeTrimestre, error: activeError } = await supabase.rpc(
       'create_trimestre_with_checklist',
       {
@@ -29,27 +35,44 @@ async function loadDashboard() {
       }
     );
 
-    if (activeError?.code === '23505') {
-      // Already exists, fetch it
-      const { data } = await supabase
-        .from('trimestres')
-        .select('*, expected_documents(id, status)')
-        .eq('user_id', user.id)
-        .eq('year', currentYear)
-        .eq('quarter', currentQuarter)
-        .single();
-      trimestreData = data;
+    console.log('[Dashboard] RPC response:', { data: activeTrimestre, error: activeError });
+
+    if (activeError) {
+      if (activeError.code === '23505') {
+        // Already exists, fetch it
+        console.log('[Dashboard] Trimestre already exists, fetching...');
+        const { data, error: fetchError } = await supabase
+          .from('trimestres')
+          .select('*, expected_documents(id, status)')
+          .eq('user_id', user.id)
+          .eq('year', currentYear)
+          .eq('quarter', currentQuarter)
+          .single();
+
+        if (fetchError) {
+          console.error('[Dashboard] Error fetching existing trimestre:', fetchError);
+          throw fetchError;
+        }
+
+        trimestreData = data;
+        console.log('[Dashboard] Fetched existing trimestre:', trimestreData);
+      } else {
+        console.error('[Dashboard] RPC error (not duplicate):', activeError);
+        throw activeError;
+      }
     } else {
       trimestreData = activeTrimestre;
+      console.log('[Dashboard] Created new trimestre:', trimestreData);
     }
 
     // Count pending expenses
     const pendingExpenses = trimestreData?.expected_documents?.filter(
       doc => doc.status === 'pending'
     ).length || 0;
+    console.log('[Dashboard] Pending expenses:', pendingExpenses);
 
     // Get past trimestres
-    const { data: pastTrimestres } = await supabase
+    const { data: pastTrimestres, error: pastError } = await supabase
       .from('trimestres')
       .select('id, year, quarter, status, closed_at, checklist_progress')
       .eq('user_id', user.id)
@@ -58,12 +81,26 @@ async function loadDashboard() {
       .order('quarter', { ascending: false })
       .limit(5);
 
+    if (pastError) {
+      console.error('[Dashboard] Error fetching past trimestres:', pastError);
+    } else {
+      console.log('[Dashboard] Past trimestres:', pastTrimestres);
+    }
+
     // Render the dashboard
-    renderDashboard(trimestreData, pendingExpenses, pastTrimestres);
+    console.log('[Dashboard] Rendering dashboard...');
+    renderDashboard(trimestreData, pendingExpenses, pastTrimestres || []);
 
   } catch (error) {
-    console.error('Error loading dashboard:', error);
-    alert('Error al cargar el dashboard. Inténtalo de nuevo.');
+    console.error('[Dashboard] Fatal error:', error);
+
+    // Hide loading, show error
+    const loadingDashboard = document.getElementById('loading-dashboard');
+    const dashboardContent = document.getElementById('dashboard-content');
+    if (loadingDashboard) loadingDashboard.style.display = 'none';
+
+    // Show error message
+    alert('Error al cargar el dashboard: ' + (error.message || 'Error desconocido') + '\n\nRevisa la consola para más detalles.');
   }
 }
 
