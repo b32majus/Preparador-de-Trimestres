@@ -111,14 +111,25 @@ const baseUrl = import.meta.env.BASE_URL;
   const trimestreId = urlParams.get('id');
 
   async function loadResumen() {
+    console.log('[Resumen] Starting loadResumen...');
+    console.log('[Resumen] trimestreId from URL:', trimestreId);
+
     // 1. Validate trimestreId
     if (!trimestreId) {
+      console.log('[Resumen] No trimestreId, redirecting to dashboard');
       window.location.href = `${baseUrl}dashboard`;
       return;
     }
 
     // 2. Get user and validate trimestre
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    console.log('[Resumen] User:', user?.email, 'Error:', userError);
+
+    if (!user) {
+      console.log('[Resumen] No user found, redirecting to dashboard');
+      window.location.href = `${baseUrl}dashboard`;
+      return;
+    }
 
     const { data: trimestre, error: trimestreError } = await supabase
       .from('trimestres')
@@ -127,13 +138,18 @@ const baseUrl = import.meta.env.BASE_URL;
       .eq('user_id', user.id)
       .single();
 
+    console.log('[Resumen] Trimestre:', trimestre, 'Error:', trimestreError);
+
     if (trimestreError || !trimestre) {
+      console.log('[Resumen] Trimestre not found or error, redirecting to dashboard');
       window.location.href = `${baseUrl}dashboard`;
       return;
     }
 
     // 3. Check status
+    console.log('[Resumen] Trimestre status:', trimestre.status);
     if (trimestre.status !== 'ready' && trimestre.status !== 'sent') {
+      console.log('[Resumen] Status not ready/sent, redirecting to trimestre');
       window.location.href = `${baseUrl}trimestre?id=${trimestreId}`;
       return;
     }
