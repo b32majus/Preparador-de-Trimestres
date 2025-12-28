@@ -13,6 +13,9 @@ const trimestreId = Astro.url.searchParams.get('id');
 
   <div id="certificado-content" style="display: none;">
     <div class="certificado-page">
+      <!-- Navigation rendered dynamically -->
+      <div id="page-navigation" class="no-print"></div>
+
       <div class="certificate-container">
         <div class="accent-bar"></div>
 
@@ -163,6 +166,31 @@ const trimestreId = Astro.url.searchParams.get('id');
   }
 
   function renderTrimestreInfo(trimestre, closedDate) {
+    // Render navigation in the separate container
+    document.getElementById('page-navigation').innerHTML = `
+      <nav class="page-nav">
+        <a href="${baseUrl}trimestre?id=${trimestreId}" class="nav-link">
+          <span class="material-symbols-outlined">arrow_back</span>
+          <span>Volver al trimestre</span>
+        </a>
+        <div class="nav-tabs">
+          <a href="${baseUrl}trimestre?id=${trimestreId}" class="nav-tab">
+            <span class="material-symbols-outlined">checklist</span>
+            <span>Trimestre</span>
+          </a>
+          <a href="${baseUrl}resumen?id=${trimestreId}" class="nav-tab">
+            <span class="material-symbols-outlined">summarize</span>
+            <span>Resumen</span>
+          </a>
+          <a href="${baseUrl}certificado?id=${trimestreId}" class="nav-tab active">
+            <span class="material-symbols-outlined">workspace_premium</span>
+            <span>Certificado</span>
+          </a>
+        </div>
+      </nav>
+    `;
+
+    // Render trimestre info inside the certificate
     document.getElementById('trimestre-info').innerHTML = `
       <div class="trimestre-info">
         <h2>
@@ -282,15 +310,89 @@ const trimestreId = Astro.url.searchParams.get('id');
     }
   }
 
+  /* Page Navigation */
+  .page-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    width: 100%;
+    max-width: 700px;
+  }
+
+  @media (min-width: 768px) {
+    .page-nav {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+  }
+
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    text-decoration: none;
+    transition: color var(--transition-base);
+  }
+
+  .nav-link:hover {
+    color: var(--color-primary);
+  }
+
+  .nav-link .material-symbols-outlined {
+    font-size: 1.25rem;
+  }
+
+  .nav-tabs {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-full);
+    padding: 0.25rem;
+  }
+
+  .nav-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all var(--transition-base);
+  }
+
+  .nav-tab:hover {
+    color: var(--text-main);
+    background: var(--bg-hover);
+  }
+
+  .nav-tab.active {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .nav-tab .material-symbols-outlined {
+    font-size: 1.125rem;
+  }
+
   .certificado-page {
     min-height: 100vh;
     background: var(--bg-page);
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 3rem 1rem;
+    justify-content: flex-start;
+    padding: 2rem 1rem 3rem;
     position: relative;
+    gap: 1.5rem;
   }
 
   .certificate-container {

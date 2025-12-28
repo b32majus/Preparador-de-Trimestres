@@ -915,10 +915,69 @@ const baseUrl = import.meta.env.BASE_URL;
       </div>
     `;
 
-    // Note: Download functionality requires generator libraries
-    // This is placeholder for now
+    // Attach download button listeners
+    attachDownloadListeners(trimestreId);
+  }
+
+  function attachDownloadListeners(trimestreId) {
+    // Download ZIP - placeholder for now
     document.querySelector('[data-action="download-zip"]')?.addEventListener('click', () => {
-      alert('Funcionalidad de descarga ZIP próximamente');
+      alert('Funcionalidad de descarga ZIP próximamente. Por ahora puedes descargar los documentos individualmente.');
+    });
+
+    // View Executive Summary (redirects to resumen page)
+    document.querySelector('[data-action="download-executive"]')?.addEventListener('click', () => {
+      window.location.href = `${baseUrl}resumen?id=${trimestreId}`;
+    });
+
+    // View Complete Summary (redirects to resumen page with full view)
+    document.querySelector('[data-action="download-complete"]')?.addEventListener('click', () => {
+      window.location.href = `${baseUrl}resumen?id=${trimestreId}&view=complete`;
+    });
+
+    // View Certificate (redirects to certificado page)
+    document.querySelector('[data-action="download-certificate"]')?.addEventListener('click', () => {
+      window.location.href = `${baseUrl}certificado?id=${trimestreId}`;
+    });
+
+    // Copy email text
+    document.querySelector('[data-copy="email"]')?.addEventListener('click', async () => {
+      const trimestre = window.__TRIMESTRE_DATA__;
+      const emailText = `Hola,
+
+Te envío la documentación del trimestre Q${trimestre.quarter}/${trimestre.year}.
+
+Adjunto encontrarás todos los documentos organizados por sección (ingresos, gastos, banco y otros).
+
+Si tienes alguna duda, no dudes en contactarme.
+
+Un saludo.`;
+
+      try {
+        await navigator.clipboard.writeText(emailText);
+        const btn = document.querySelector('[data-copy="email"]');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined">check</span><span>¡Copiado!</span>';
+        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+      } catch (err) {
+        alert('Error al copiar. Texto:\n\n' + emailText);
+      }
+    });
+
+    // Copy WhatsApp text
+    document.querySelector('[data-copy="whatsapp"]')?.addEventListener('click', async () => {
+      const trimestre = window.__TRIMESTRE_DATA__;
+      const whatsappText = `Hola! Te envío la documentación del Q${trimestre.quarter}/${trimestre.year}. Todo organizado y listo para revisar.`;
+
+      try {
+        await navigator.clipboard.writeText(whatsappText);
+        const btn = document.querySelector('[data-copy="whatsapp"]');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined">check</span><span>¡Copiado!</span>';
+        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+      } catch (err) {
+        alert('Error al copiar. Texto:\n\n' + whatsappText);
+      }
     });
   }
 
@@ -951,9 +1010,43 @@ const baseUrl = import.meta.env.BASE_URL;
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalContent;
       } else {
+        // Update global state
+        window.__TRIMESTRE_DATA__.status = 'ready';
+        window.__TRIMESTRE_DATA__.closed_at = new Date().toISOString();
+
+        // Show success message
         const closureMsg = getClosureMessage(window.__TRIMESTRE_DATA__.quarter, window.__TRIMESTRE_DATA__.year);
         alert(`${closureMsg.title}\n\n${closureMsg.message}`);
-        window.location.href = `${baseUrl}resumen?id=${trimestreId}`;
+
+        // Update UI in-place instead of redirecting
+        // 1. Update header badge
+        const headerBadge = document.querySelector('.header-actions .badge');
+        if (headerBadge) {
+          headerBadge.className = 'badge badge-success';
+          headerBadge.textContent = 'Listo para enviar';
+        }
+
+        // 2. Add "Ver Resumen" button if not exists
+        const headerActions = document.querySelector('.header-actions');
+        if (headerActions && !headerActions.querySelector('.btn-resumen')) {
+          headerActions.insertAdjacentHTML('beforeend', `
+            <a href="${baseUrl}resumen?id=${trimestreId}" class="btn-resumen">
+              <span class="material-symbols-outlined">summarize</span>
+              <span>Ver Resumen</span>
+            </a>
+          `);
+        }
+
+        // 3. Show download package section
+        renderDownloadPackage(trimestreId, 'ready');
+
+        // 4. Hide sticky CTA
+        document.getElementById('sticky-cta').innerHTML = `
+          <div class="success-cta">
+            <span class="material-symbols-outlined">check_circle</span>
+            <span>Trimestre cerrado correctamente</span>
+          </div>
+        `;
       }
     });
   }
@@ -1946,6 +2039,24 @@ const baseUrl = import.meta.env.BASE_URL;
   .btn-submit:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+  }
+
+  .success-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, var(--color-success) 0%, var(--color-success-light) 100%);
+    color: white;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    border-radius: var(--radius-xl);
+    box-shadow: 0 8px 24px -4px rgba(74, 124, 89, 0.3);
+  }
+
+  .success-cta .material-symbols-outlined {
+    font-size: 1.5rem;
   }
 
   /* Tip Box */
