@@ -100,6 +100,15 @@ El proyecto utiliza un sistema de diseño custom basado en CSS Variables que pri
 - npm o pnpm
 - Cuenta de Supabase (para backend)
 
+### Deployment
+
+El proyecto está configurado para **GitHub Pages** con despliegue automático:
+
+- **Build Mode**: Static (`output: 'static'` en astro.config.mjs)
+- **Base Path**: `/Preparador-de-Trimestres/`
+- **GitHub Actions**: Deploy automático en cada push a `main`
+- **URL**: https://b32majus.github.io/Preparador-de-Trimestres/
+
 ### Instalación
 
 ```bash
@@ -119,9 +128,11 @@ cp .env.example .env
 Crear archivo `.env` en la raíz del proyecto:
 
 ```env
-PUBLIC_SUPABASE_URL=tu_supabase_url
+PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
 PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
 ```
+
+**Nota**: Las variables deben usar el prefijo `PUBLIC_` para estar disponibles en el cliente en builds estáticos.
 
 ### Scripts Disponibles
 
@@ -152,8 +163,9 @@ npm run astro check
 
 - **`/login`** - Autenticación Magic Link
   - Formulario de email
-  - Envío de enlace mágico vía Supabase Auth
+  - Envío de enlace mágico vía Supabase Auth (OTP)
   - Redirección automática si ya hay sesión
+  - Callback en `/auth/callback` (client-side exchange)
 
 ### Protegidas (Requieren Autenticación)
 
@@ -172,16 +184,22 @@ npm run astro check
   - Botón "Cerrar Trimestre"
 
 - **`/resumen?id={id}`** - Resumen final
-  - Checklist completada
-  - Lista de documentos subidos
-  - Tarjeta de fecha de cierre
-  - Botón "Generar Certificado"
+  - Navegación con tabs (Trimestre / Resumen / Certificado)
+  - Progreso del checklist completado
+  - Estadísticas de documentos por categoría
+  - Gastos recurrentes guardados
+  - Notas para el asesor
+  - Ítems marcados como dudosos
+  - Botones de exportación (PDF Ejecutivo, PDF Completo, ZIP)
+  - Copiar texto para email/WhatsApp
   - Mensaje de celebración
 
 - **`/certificado?id={id}`** - Certificado descargable
-  - Resumen formateado para imprimir/PDF
-  - Checklist + documentos organizados
+  - Navegación con tabs alineada con header
+  - Diseño tipo diploma para imprimir/PDF
+  - Resumen de estadísticas (checklist, documentos, dudas, recurrentes)
   - Mensaje final: "Puedes soltar esto de tu cabeza"
+  - Botones: Descargar PDF, Compartir Logro
 
 - **`/ajustes`** - Configuración de usuario
   - Información de cuenta
@@ -326,23 +344,28 @@ La landing page incluye optimización SEO completa:
 
 ## 🛠️ Stack Tecnológico
 
-- **Framework**: Astro 4.x (SSR + Static)
+- **Framework**: Astro 4.x (Static Site Generation)
 - **Backend**: Supabase (PostgreSQL + Auth + Storage)
-- **Lenguajes**: TypeScript, JavaScript, Astro, CSS
+- **Lenguajes**: JavaScript, Astro, CSS
 - **Iconos**: Material Symbols Outlined
 - **Fuentes**: Google Fonts (Cormorant Garamond, Inter)
-- **Deploy**: Compatible con Vercel, Netlify, Cloudflare Pages
+- **Deploy**: GitHub Pages
+- **PDF Generation**: jsPDF + jsPDF-AutoTable
+- **File Download**: FileSaver.js
+- **ZIP Generation**: JSZip
 
 ## 🎯 Próximos Pasos
 
+- [x] Exportación PDF del certificado
+- [x] Sistema de memoria trimestral (gastos recurrentes)
+- [x] Deploy a GitHub Pages
 - [ ] Implementar funcionalidad de menú móvil (hamburguesa)
-- [ ] Añadir memoria trimestral (precargar datos de Q anterior)
 - [ ] Sistema de notificaciones por email (recordatorios)
 - [ ] Analytics y tracking de UX
 - [ ] Tests E2E con Playwright
 - [ ] Modo oscuro (dark mode)
-- [ ] Exportación PDF del certificado
 - [ ] Internacionalización (i18n)
+- [ ] Mejoras en generación de PDF (mejor formato, imágenes)
 
 ## 📝 Licencia
 
