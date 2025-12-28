@@ -149,6 +149,9 @@ const baseUrl = import.meta.env.BASE_URL;
         checklist_progress: trimestre.checklist_progress
       };
 
+      // Store sections data for accordion functionality
+      window.__SECTIONS_DATA__ = groupedData;
+
       // Render all sections
       renderHeaderCard(quarterLabel, trimestre, quarterDates, progress, statusBadge);
       renderExpectedExpenses(expectedDocs, trimestreId);
@@ -348,31 +351,28 @@ const baseUrl = import.meta.env.BASE_URL;
 
       const itemsHTML = section.items.map(item => renderChecklistItem(item, section.name)).join('');
 
+      // Always render section-content, use CSS to show/hide
       return `
-        <div class="checklist-section ${isExpanded ? 'expanded' : 'collapsed'}" data-section="${section.name}">
+        <div class="checklist-section ${isExpanded ? 'expanded' : 'collapsed'}" data-section="${section.name}" data-completed="${completedCount}" data-total="${totalCount}">
           <button class="section-header" data-toggle-section aria-expanded="${isExpanded}">
             <div class="header-left">
               <span class="expand-icon material-symbols-outlined">expand_more</span>
               <h3 class="section-name">${sectionLabels[section.name]}</h3>
               <span class="completion-badge">${completedCount}/${totalCount} completados</span>
             </div>
-            ${!isExpanded && totalCount > 0 ? `
-              <div class="progress-mini">
-                <div class="progress-bar" style="width: ${progress}%"></div>
-              </div>
-            ` : ''}
+            <div class="progress-mini" style="${isExpanded || totalCount === 0 ? 'display: none;' : ''}">
+              <div class="progress-bar" style="width: ${progress}%"></div>
+            </div>
           </button>
 
-          ${isExpanded ? `
-            <div class="section-content">
-              ${section.items.length > 0 ? itemsHTML : `
-                <div class="empty-section">
-                  <span class="material-symbols-outlined">inbox</span>
-                  <p>No hay items en esta sección</p>
-                </div>
-              `}
-            </div>
-          ` : ''}
+          <div class="section-content" style="${isExpanded ? '' : 'display: none;'}">
+            ${section.items.length > 0 ? itemsHTML : `
+              <div class="empty-section">
+                <span class="material-symbols-outlined">inbox</span>
+                <p>No hay items en esta sección</p>
+              </div>
+            `}
+          </div>
         </div>
       `;
     }).join('');
@@ -449,61 +449,84 @@ const baseUrl = import.meta.env.BASE_URL;
       btn.addEventListener('click', () => {
         const section = btn.closest('[data-section]');
         const isExpanded = section.classList.contains('expanded');
+        const content = section.querySelector('.section-content');
+        const progressMini = btn.querySelector('.progress-mini');
 
         if (isExpanded) {
+          // Collapse: hide content, show progress mini
           section.classList.remove('expanded');
           section.classList.add('collapsed');
           btn.setAttribute('aria-expanded', 'false');
 
-          // Remove section-content
-          const content = section.querySelector('.section-content');
-          if (content) content.remove();
+          if (content) content.style.display = 'none';
 
-          // Add progress mini
-          const sectionData = section.dataset.section;
-          // Recalculate progress for this section
+          // Recalculate and show progress mini
           const items = section.querySelectorAll('.checklist-item');
           const completedCount = Array.from(items).filter(item => item.dataset.status === 'done').length;
           const totalCount = items.length;
           const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-          btn.innerHTML = `
-            <div class="header-left">
-              <span class="expand-icon material-symbols-outlined">expand_more</span>
-              <h3 class="section-name">${btn.querySelector('.section-name').textContent}</h3>
-              <span class="completion-badge">${completedCount}/${totalCount} completados</span>
-            </div>
-            ${totalCount > 0 ? `
-              <div class="progress-mini">
-                <div class="progress-bar" style="width: ${progress}%"></div>
-              </div>
-            ` : ''}
-          `;
+          // Update completion badge
+          const badge = btn.querySelector('.completion-badge');
+          if (badge) badge.textContent = `${completedCount}/${totalCount} completados`;
+
+          // Show and update progress mini
+          if (progressMini && totalCount > 0) {
+            progressMini.style.display = '';
+            const progressBar = progressMini.querySelector('.progress-bar');
+            if (progressBar) progressBar.style.width = `${progress}%`;
+          }
         } else {
+          // Expand: show content, hide progress mini
           section.classList.remove('collapsed');
           section.classList.add('expanded');
           btn.setAttribute('aria-expanded', 'true');
 
-          // Remove progress mini
-          const progressMini = btn.querySelector('.progress-mini');
-          if (progressMini) progressMini.remove();
-
-          // Re-render section content
-          // (In production, store section data and re-render)
-          window.location.reload(); // Simplified for now
+          if (content) content.style.display = '';
+          if (progressMini) progressMini.style.display = 'none';
         }
       });
     });
 
-    // Checklist item interactions
-    document.querySelectorAll('.checklist-item').forEach(item => {
-      item.addEventListener('click', async (e) => {
-        if (e.target.closest('[data-action]')) return;
+    // Checklist item interactions - use event delegation to avoid duplicate listeners
+    const sectionsList = document.getElementById('sections-list');
+    if (sectionsList && !sectionsList.dataset.listenersAttached) {
+      sectionsList.dataset.listenersAttached = 'true';
+
+      sectionsList.addEventListener('click', async (e) => {
+        const actionBtn = e.target.closest('[data-action]');
+        const item = e.target.closest('.checklist-item');
+
+        if (!item) return;
 
         const itemId = item.dataset.itemId;
         const currentStatus = item.dataset.status;
         const section = item.dataset.section;
 
+        // Handle action buttons
+        if (actionBtn) {
+          const action = actionBtn.dataset.action;
+
+          if (action === 'upload') {
+            // Trigger file upload for this item
+            const uploadZone = document.querySelector('.dropzone');
+            if (uploadZone) {
+              uploadZone.dataset.targetItem = itemId;
+              uploadZone.dataset.section = section;
+              const fileInput = uploadZone.querySelector('input[type="file"]');
+              if (fileInput) fileInput.click();
+            }
+          } else if (action === 'view') {
+            // View the uploaded document
+            alert('Funcionalidad de ver documento próximamente');
+          } else if (action === 'edit') {
+            // Edit the doubtful item
+            alert('Funcionalidad de editar item próximamente');
+          }
+          return;
+        }
+
+        // Handle status toggle (click on item itself)
         const stateFlow = {
           'pending': 'done',
           'done': 'doubtful',
@@ -531,11 +554,18 @@ const baseUrl = import.meta.env.BASE_URL;
           const itemData = { id: itemId, label: item.querySelector('.item-label').textContent, help_text: item.querySelector('.item-help')?.textContent, status: nextStatus };
           item.outerHTML = renderChecklistItem(itemData, section);
 
-          // Re-attach listeners
-          attachChecklistListeners();
+          // Update section completion badge
+          const sectionEl = document.querySelector(`[data-section="${section}"]`);
+          if (sectionEl) {
+            const items = sectionEl.querySelectorAll('.checklist-item');
+            const completedCount = Array.from(items).filter(i => i.dataset.status === 'done').length;
+            const totalCount = items.length;
+            const badge = sectionEl.querySelector('.completion-badge');
+            if (badge) badge.textContent = `${completedCount}/${totalCount} completados`;
+          }
         }
       });
-    });
+    }
   }
 
   function renderInfoBox() {
@@ -1673,9 +1703,23 @@ const baseUrl = import.meta.env.BASE_URL;
     border: 1px solid #EAD8C5;
   }
 
+  .btn-secondary:hover {
+    background: var(--bg-page);
+    border-color: var(--color-primary-light);
+  }
+
   .btn-primary {
     background: var(--color-primary);
     color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--color-primary-hover);
+    transform: translateY(-1px);
+  }
+
+  .btn-link:hover {
+    color: var(--color-primary);
   }
 
   /* Info Box */

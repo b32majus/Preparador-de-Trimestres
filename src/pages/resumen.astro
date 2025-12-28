@@ -476,7 +476,7 @@ const trimestreId = Astro.url.searchParams.get('id');
   loadResumen();
 </script>
 
-<style>
+<style is:global>
   .loading-container {
     display: flex;
     flex-direction: column;
