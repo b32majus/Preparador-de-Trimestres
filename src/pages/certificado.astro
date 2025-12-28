@@ -2,7 +2,6 @@
 import App from '../layouts/App.astro';
 
 const baseUrl = import.meta.env.BASE_URL;
-const trimestreId = Astro.url.searchParams.get('id');
 ---
 
 <App title="Certificado de Cierre">
@@ -75,7 +74,7 @@ const trimestreId = Astro.url.searchParams.get('id');
   </div>
 </App>
 
-<div id="certificado-config" data-base-url={baseUrl} data-trimestre-id={trimestreId}></div>
+<div id="certificado-config" data-base-url={baseUrl}></div>
 
 <script>
   import { supabase } from '../lib/supabase.js';
@@ -85,7 +84,9 @@ const trimestreId = Astro.url.searchParams.get('id');
 
   const configElement = document.getElementById('certificado-config');
   const baseUrl = configElement.dataset.baseUrl;
-  const trimestreId = configElement.dataset.trimestreId;
+  // Get trimestreId from URL query parameter (client-side for static builds)
+  const urlParams = new URLSearchParams(window.location.search);
+  const trimestreId = urlParams.get('id');
 
   async function loadCertificado() {
     // 1. Validate trimestreId
