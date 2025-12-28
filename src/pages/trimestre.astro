@@ -162,7 +162,13 @@ const baseUrl = import.meta.env.BASE_URL;
       if (trimestre.status === 'ready' || trimestre.status === 'sent') {
         renderDownloadPackage(trimestreId, trimestre.status);
       }
-      renderStickyCTA(trimestreId);
+      // Only show the close button if trimestre is still in preparation
+      if (trimestre.status === 'preparation') {
+        renderStickyCTA(trimestreId);
+      } else {
+        // Show success message for already closed trimesters
+        renderClosedStickyCTA();
+      }
       renderTipBox(normalizationMsg);
       renderUploadZone(trimestreId);
       renderRecentDocuments(documents?.slice(0, 3) || [], trimestreId);
@@ -1049,6 +1055,15 @@ Un saludo.`;
         `;
       }
     });
+  }
+
+  function renderClosedStickyCTA() {
+    document.getElementById('sticky-cta').innerHTML = `
+      <div class="success-cta">
+        <span class="material-symbols-outlined">check_circle</span>
+        <span>Trimestre cerrado correctamente</span>
+      </div>
+    `;
   }
 
   function renderTipBox(normalizationMsg) {

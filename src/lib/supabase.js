@@ -161,7 +161,7 @@ export async function getDocuments(trimestreId, section = null) {
       .from('documents')
       .select('*')
       .eq('trimestre_id', trimestreId)
-      .order('uploaded_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (section) {
       query = query.eq('section', section);
@@ -170,12 +170,14 @@ export async function getDocuments(trimestreId, section = null) {
     const { data, error } = await query;
 
     if (error) {
-      return { data: null, error };
+      console.error('getDocuments error:', error);
+      return { data: [], error }; // Return empty array instead of null to prevent crashes
     }
 
-    return { data, error: null };
+    return { data: data || [], error: null };
   } catch (error) {
-    return { data: null, error };
+    console.error('getDocuments exception:', error);
+    return { data: [], error };
   }
 }
 
