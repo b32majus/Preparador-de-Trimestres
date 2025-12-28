@@ -115,12 +115,14 @@ export async function getChecklistItems(trimestreId) {
       .order('item_number');
 
     if (error) {
-      return { data: null, error };
+      console.error('getChecklistItems error:', error);
+      return { data: [], error }; // Return empty array instead of null
     }
 
-    return { data, error: null };
+    return { data: data || [], error: null };
   } catch (error) {
-    return { data: null, error };
+    console.error('getChecklistItems exception:', error);
+    return { data: [], error };
   }
 }
 
@@ -299,12 +301,14 @@ export async function getExpectedDocuments(trimestreId) {
       .order('created_at');
 
     if (error) {
-      return { data: null, error };
+      console.error('getExpectedDocuments error:', error);
+      return { data: [], error }; // Return empty array instead of null
     }
 
-    return { data, error: null };
+    return { data: data || [], error: null };
   } catch (error) {
-    return { data: null, error };
+    console.error('getExpectedDocuments exception:', error);
+    return { data: [], error };
   }
 }
 
