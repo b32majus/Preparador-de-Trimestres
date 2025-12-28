@@ -247,13 +247,9 @@ const baseUrl = import.meta.env.BASE_URL;
           <span class="material-symbols-outlined celebration-icon">celebration</span>
           ¡Buen trabajo! Aquí tienes todo lo que has preparado.
         </p>
-      </div>
-
-      <div class="closed-date-card">
-        <span class="label">Fecha de cierre</span>
-        <div class="date-display">
+        <div class="closed-date-inline">
           <span class="material-symbols-outlined">event</span>
-          <span>${closedDate}</span>
+          <span>Cerrado el ${closedDate}</span>
         </div>
       </div>
     `;
@@ -691,52 +687,23 @@ const baseUrl = import.meta.env.BASE_URL;
     flex-shrink: 0;
   }
 
-  .closed-date-card {
-    display: none;
-  }
-
-  @media (min-width: 768px) {
-    .closed-date-card {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 0.25rem;
-      background: var(--bg-card);
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius-xl);
-      padding: 1.25rem;
-      box-shadow: var(--shadow-card);
-      position: absolute;
-      top: 0;
-      right: 0;
-    }
-
-    .header-section {
-      position: relative;
-    }
-  }
-
-  .closed-date-card .label {
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .closed-date-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
   }
 
-  .date-display {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: var(--font-serif);
-    font-size: var(--font-size-2xl);
-    font-weight: 700;
-    color: var(--text-main);
-  }
-
-  .date-display .material-symbols-outlined {
+  .closed-date-inline .material-symbols-outlined {
+    font-size: 1.125rem;
     color: var(--color-primary);
-    font-size: var(--font-size-2xl);
   }
 
   /* Progress Section */
