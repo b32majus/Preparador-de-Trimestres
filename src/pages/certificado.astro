@@ -10,12 +10,11 @@ const baseUrl = import.meta.env.BASE_URL;
     <p>Cargando certificado...</p>
   </div>
 
-  <div id="certificado-content" style="display: none;">
-    <div class="certificado-page">
-      <!-- Navigation rendered dynamically -->
-      <div id="page-navigation" class="no-print"></div>
+  <div id="certificado-content" class="certificado-container" style="display: none;">
+    <!-- Navigation rendered dynamically -->
+    <div id="page-navigation" class="no-print"></div>
 
-      <div class="certificate-container">
+    <div class="certificate-card">
         <div class="accent-bar"></div>
 
         <div class="certificate-content">
@@ -58,18 +57,17 @@ const baseUrl = import.meta.env.BASE_URL;
         </div>
 
         <div class="bottom-gradient"></div>
-      </div>
+    </div>
 
-      <div class="action-buttons no-print">
-        <button class="btn-download" data-action="download-certificate">
-          <span class="material-symbols-outlined">download</span>
-          Descargar PDF
-        </button>
-        <button class="btn-share">
-          <span class="material-symbols-outlined">share</span>
-          Compartir Logro
-        </button>
-      </div>
+    <div class="action-buttons no-print">
+      <button class="btn-download" data-action="download-certificate">
+        <span class="material-symbols-outlined">download</span>
+        Descargar PDF
+      </button>
+      <button class="btn-share">
+        <span class="material-symbols-outlined">share</span>
+        Compartir Logro
+      </button>
     </div>
   </div>
 </App>
@@ -388,23 +386,27 @@ const baseUrl = import.meta.env.BASE_URL;
     font-size: 1.125rem;
   }
 
-  .certificado-page {
-    min-height: 100vh;
-    background: var(--bg-page);
+  .certificado-container {
     width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    background: var(--bg-page);
+    min-height: 100vh;
   }
 
   #page-navigation {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2.5rem 1.5rem 0 1.5rem;
+    width: 100%;
   }
 
-  .certificate-container {
+  .certificate-card {
     position: relative;
     width: 100%;
     max-width: 700px;
-    margin: 1.5rem auto;
     background: var(--bg-card);
     box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 5px 15px -5px rgba(0, 0, 0, 0.02);
     border-radius: var(--radius-xl);
@@ -418,7 +420,6 @@ const baseUrl = import.meta.env.BASE_URL;
     gap: 0.75rem;
     width: 100%;
     max-width: 700px;
-    margin: 0 auto 2.5rem auto;
   }
 
   .accent-bar {

@@ -10,9 +10,7 @@ const baseUrl = import.meta.env.BASE_URL;
     <p>Cargando resumen...</p>
   </div>
 
-  <div id="resumen-content" style="display: none;">
-    <div class="resumen-page">
-      <div class="container">
+  <div id="resumen-content" class="resumen-container" style="display: none;">
         <!-- Header Section -->
         <section class="header-section" id="header-section"></section>
 
@@ -81,10 +79,8 @@ const baseUrl = import.meta.env.BASE_URL;
           </div>
         </section>
 
-        <!-- Certificate Link -->
-        <div class="certificate-link" id="certificate-link"></div>
-      </div>
-    </div>
+    <!-- Certificate Link -->
+    <div class="certificate-link" id="certificate-link"></div>
 
     <div class="loading-overlay" style="display: none;">
       <div class="spinner"></div>
@@ -534,19 +530,16 @@ const baseUrl = import.meta.env.BASE_URL;
     font-weight: 500;
   }
 
-  .resumen-page {
+  .resumen-container {
     width: 100%;
-    background: var(--bg-page);
-    min-height: 100vh;
-  }
-
-  .container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 2.5rem 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 2rem;
+    background: var(--bg-page);
+    min-height: 100vh;
   }
 
   /* Page Navigation */
